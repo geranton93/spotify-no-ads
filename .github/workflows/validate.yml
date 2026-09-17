@@ -1,0 +1,35 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extension parses as JavaScript
+        run: node --check extensions/no-ads.js
+
+      - name: Tools parse as Python
+        run: |
+          python3 -m py_compile tools/no-ads-verify.py tools/no-ads-monitor.py
+
+      - name: Shell tool parses
+        run: bash -n tools/no-ads-check.sh
+
+      - name: No ad-testing or entitlement-spoofing calls in code
+        run: |
+          # comments legitimately mention these names when explaining what was rejected,
+          # so drop comment lines before scanning
+          code="$(grep -vE '^[[:space:]]*(//|\*|/\*)' extensions/no-ads.js || true)"
+          if printf '%s\n' "$code" | grep -nE 'addPlaytime|insertAd|putOverridesValues'; then
+            echo "::error::forbidden API usage in the extension"; exit 1
+          fi
+          echo "clean: no ad-testing or override calls in code"
+
+      - name: Version string present
+        run: grep -q "VERSION = '1\." extensions/no-ads.js && echo "version found"
