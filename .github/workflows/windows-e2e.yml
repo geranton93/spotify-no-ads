@@ -58,6 +58,21 @@ jobs:
           if (-not $found) { throw "spicetify is not installed / not on PATH" }
           "spicetify: $(& $found --version)"
 
+      - name: Wrap the CLI so it tolerates the runner's admin session
+        shell: pwsh
+        run: |
+          $real = (Get-Command spicetify).Source
+          "real spicetify: $real"
+          $shimDir = Join-Path $env:RUNNER_TEMP 'spicetify-shim'
+          New-Item -ItemType Directory -Force -Path $shimDir | Out-Null
+          # Spicetify refuses to run as administrator (the runner session is admin) and its own error
+          # message points at this flag. The shim adds it for every call - including the ones our
+          # installer makes internally - so the flow otherwise mirrors a normal user's.
+          $shim = "@echo off`r`n`"$real`" --bypass-admin %*`r`n"
+          Set-Content -Path (Join-Path $shimDir 'spicetify.cmd') -Value $shim -Encoding ASCII
+          $shimDir | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+          "shimmed: $shimDir\spicetify.cmd"
+
       - name: Make sure the client's app files exist (first launch if needed)
         shell: pwsh
         run: |
