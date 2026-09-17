@@ -1,0 +1,89 @@
+name: windows-e2e
+
+# The full Windows end-to-end, on demand: a real Spotify desktop client, a real Spicetify, and our
+# one-line installer - then it verifies that the extension is enabled in the Spicetify config AND
+# present inside the patched client bundle. Nothing here is stubbed.
+#
+# Kept out of the push pipeline on purpose: it installs third-party software from the internet and
+# takes several minutes, so it is run when the Windows path is being changed or questioned.
+#
+# Run it with:  gh workflow run windows-e2e.yml
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the real Spotify desktop client
+        shell: pwsh
+        run: |
+          choco install spotify -y --no-progress
+          $spotify = Join-Path $env:APPDATA 'Spotify\Spotify.exe'
+          if (-not (Test-Path $spotify)) { throw "Spotify was not installed where expected: $spotify" }
+          "Spotify installed: $spotify"
+
+      - name: Install the real Spicetify
+        shell: pwsh
+        run: |
+          iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex
+          $cli = Join-Path $env:USERPROFILE '.spicetify\spicetify.exe'
+          if (-not (Test-Path $cli)) { throw "spicetify was not installed at $cli" }
+          "spicetify version: $(& $cli --version)"
+          $cli | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+
+      - name: First patch (backup + apply) with the stock config
+        shell: pwsh
+        run: |
+          Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          spicetify backup apply
+          "patched with the stock configuration"
+
+      - name: Run our one-line installer (exactly what a user pastes)
+        shell: pwsh
+        run: |
+          $env:NOADS_SKIP_LAUNCH = '1'
+          iwr -useb https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/install.ps1 | iex
+
+      - name: The extension is enabled in Spicetify's own config
+        shell: pwsh
+        run: |
+          $cfg = (spicetify -c | Select-Object -Last 1)
+          "spicetify config: $cfg"
+          Get-Content $cfg | Where-Object { $_ -match '^extensions' } | ForEach-Object { "  $_" }
+          if (-not ((Get-Content -Raw $cfg) -match 'no-ads\.js')) { throw "the extension is not enabled in the Spicetify config" }
+          $ext = Join-Path (Split-Path $cfg -Parent) 'Extensions\no-ads.js'
+          if (-not (Test-Path $ext)) { throw "the extension file is missing from the Extensions folder" }
+          "extension file: $((Get-Item $ext).Length) bytes"
+
+      - name: The extension reached the patched client bundle
+        shell: pwsh
+        run: |
+          $apps = Join-Path $env:APPDATA 'Spotify\Apps'
+          if (-not (Test-Path $apps)) { throw "no Apps folder under $apps - the client layout differs from the expectation" }
+          Get-ChildItem $apps | Select-Object Name, Length | Format-Table | Out-String | Write-Host
+
+          $spa = Join-Path $apps 'xpui.spa'
+          if (-not (Test-Path $spa)) { throw "xpui.spa not found in $apps" }
+          $out = Join-Path $env:RUNNER_TEMP 'xpui-extract'
+          Expand-Archive -Path $spa -DestinationPath $out -Force
+
+          $ext = Get-ChildItem -Recurse $out -Filter 'no-ads.js' | Select-Object -First 1
+          if (-not $ext) { throw "no-ads.js is not inside the patched client bundle (xpui.spa)" }
+          "extension inside the client bundle: $($ext.FullName) ($($ext.Length) bytes)"
+
+          $index = Get-ChildItem -Recurse $out -Filter 'index.html' | Select-Object -First 1
+          if (-not $index) { throw "index.html not found inside the bundle" }
+          $html = Get-Content -Raw $index.FullName
+          if ($html -notmatch 'no-ads\.js') { throw "the bundle index.html does not load the extension" }
+          "the bundle index.html loads it: $(($html | Select-String -Pattern 'extensions/[a-zA-Z0-9._-]+\.js' -AllMatches).Matches.Value -join ', ')"
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          Write-Host 'Windows end-to-end: real Spotify + real Spicetify + our installer -> extension enabled and present in the patched bundle.'
