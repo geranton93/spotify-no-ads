@@ -84,3 +84,26 @@ loopback device instead of a microphone.
 - The extension logging "no-ads active".
 - `Player.isPlaying()` on its own.
 - A single quiet listening session: ads are scheduled over hours, so a short sample proves little.
+
+## Verifying the installers themselves
+
+An installer that only ever worked on the maintainer's machine is a liability, so the installers are
+verified at two levels:
+
+| Level | Where | What it proves |
+|---|---|---|
+| Stub suite | `tests/install-tests.sh` / `tests/install-tests.ps1` — every push, on Linux **and on a real Windows runner** | Branch logic: missing Spicetify, first install, re-run, failed `apply` with and without an existing backup, dry run. A stub `spicetify` records every call, so assertions cover both the commands issued and their effects |
+| Real end-to-end | `.github/workflows/windows-e2e.yml`, manual: `gh workflow run windows-e2e.yml` | The published one-liner against a real Spotify client and a real Spicetify on Windows: the extension is enabled in `config-xpui.ini`, present in the patched bundle (`Apps\xpui\extensions\no-ads.js`), byte-identical in size to Spicetify's own copy, and loaded by the bundle's `index.html` |
+
+Things that surprised the harness, worth knowing before changing it:
+
+- Spicetify refuses to run in an administrator session (CI runners are admin) and its error message
+  names `--bypass-admin`; the workflow wraps the CLI in a `.cmd` shim that adds the flag, so the calls
+  the installer makes internally are covered too.
+- Spicetify locates the client through its `prefs` file, which only exists after the client has run
+  for about 30 seconds — a freshly installed, never-started client fails path detection.
+- On Windows/Linux Spicetify patches by **unpacking** `Apps\xpui.spa` into `Apps\xpui\`, so the check
+  accepts either layout. On macOS the bundle is patched in place.
+- Third-party installers can be hostile to CI: Spicetify's own `install.ps1` refuses to run as
+  administrator and its interactive prompt dies headless, so the workflow uses the package-manager
+  path (`winget`, `choco` fallback) instead.
