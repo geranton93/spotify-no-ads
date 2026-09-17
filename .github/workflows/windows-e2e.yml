@@ -118,20 +118,37 @@ jobs:
         shell: pwsh
         run: |
           $apps = Join-Path $env:APPDATA 'Spotify\Apps'
-          $spa = Join-Path $apps 'xpui.spa'
-          if (-not (Test-Path $spa)) { throw "xpui.spa not found in $apps" }
-          $out = Join-Path $env:RUNNER_TEMP 'xpui-extract'
-          Expand-Archive -Path $spa -DestinationPath $out -Force
+          Write-Host 'Apps folder after patching:'
+          Get-ChildItem $apps | Select-Object Name, Length | Format-Table | Out-String | Write-Host
 
-          $ext = Get-ChildItem -Recurse $out -Filter 'no-ads.js' | Select-Object -First 1
-          if (-not $ext) { throw "no-ads.js is not inside the patched client bundle (xpui.spa)" }
-          "extension inside the patched client bundle: $($ext.FullName) ($($ext.Length) bytes)"
+          # Spicetify patches the client by unpacking Apps\xpui.spa into Apps\xpui\ (on Windows/Linux),
+          # so accept either layout instead of assuming one.
+          $ext = $null; $index = $null
+          $unpacked = Join-Path $apps 'xpui'
+          if (Test-Path $unpacked) {
+            "patched bundle (unpacked): $unpacked"
+            $ext   = Get-ChildItem -Recurse $unpacked -Filter 'no-ads.js' | Select-Object -First 1
+            $index = Get-ChildItem -Recurse $unpacked -Filter 'index.html' | Select-Object -First 1
+          } else {
+            $spa = Join-Path $apps 'xpui.spa'
+            if (-not (Test-Path $spa)) { throw "neither Apps\xpui (unpacked) nor Apps\xpui.spa exists" }
+            "patched bundle (archive): $spa"
+            $out = Join-Path $env:RUNNER_TEMP 'xpui-extract'
+            Expand-Archive -Path $spa -DestinationPath $out -Force
+            $ext   = Get-ChildItem -Recurse $out -Filter 'no-ads.js' | Select-Object -First 1
+            $index = Get-ChildItem -Recurse $out -Filter 'index.html' | Select-Object -First 1
+          }
 
-          $index = Get-ChildItem -Recurse $out -Filter 'index.html' | Select-Object -First 1
+          if (-not $ext) { throw "no-ads.js is not inside the patched client bundle" }
+          $extensionInSpicetify = Join-Path (Split-Path (spicetify -c | Select-Object -Last 1) -Parent) 'Extensions\no-ads.js'
+          "extension inside the bundle : $($ext.FullName) ($($ext.Length) bytes)"
+          "extension in Spicetify folder: $extensionInSpicetify ($((Get-Item $extensionInSpicetify).Length) bytes)"
+          if ($ext.Length -ne (Get-Item $extensionInSpicetify).Length) { throw "the files differ in size - the patched bundle does not carry the extension that Spicetify has" }
+
           if (-not $index) { throw "index.html not found inside the bundle" }
           $html = Get-Content -Raw $index.FullName
           if ($html -notmatch 'no-ads\.js') { throw "the bundle index.html does not load the extension" }
-          $loaded = ($html | Select-String -Pattern 'extensions/[a-zA-Z0-9._-]+\.js' -AllMatches).Matches.Value -join ', '
+          $loaded = (($html | Select-String -Pattern 'extensions/[a-zA-Z0-9._-]+\.js' -AllMatches).Matches.Value) -join ', '
           "the bundle index.html loads: $loaded"
 
       - name: Summary
