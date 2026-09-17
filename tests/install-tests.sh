@@ -105,7 +105,7 @@ check "happy path: extension enabled in the config" "$(grep -q 'no-ads.js' "$CFG
 check "happy path: existing extension preserved"    "$(grep -q 'other.js' "$CFGDIR/config-xpui.ini" && echo 0 || echo 1)"
 check "happy path: 'config extensions' was called"  "$(grep -q '^config extensions no-ads.js$' "$SANDBOX/calls.log" && echo 0 || echo 1)"
 check "happy path: 'apply' was called"              "$(grep -q '^apply$' "$SANDBOX/calls.log" && echo 0 || echo 1)"
-check "happy path: quit Spotify was attempted"      "$(grep -q '^osascript ' "$SANDBOX/calls.log" && echo 0 || echo 1)"
+check "happy path: quit Spotify was attempted"      "$(grep -qE '^(osascript |pkill )' "$SANDBOX/calls.log" && echo 0 || echo 1)"
 check "happy path: no real app was launched"        "$(grep -q '^open ' "$SANDBOX/calls.log" && echo 1 || echo 0)"
 check "happy path: tells the user it finished"      "$(printf '%s' "$OUT" | grep -q 'Finished' && echo 0 || echo 1)"
 

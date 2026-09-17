@@ -107,8 +107,12 @@ function Run-Installer {
     return @{ Output = $out; Code = $LASTEXITCODE }
 }
 
-$callsText = { if (Test-Path $calls) { Get-Content -Raw $calls } else { '' } }
-$configText = { if (Test-Path $config) { Get-Content -Raw $config } else { '' } }
+# Line-ending agnostic: Get-Content splits lines and drops CRLF, so -contains works on Windows too.
+$getCalls = {
+    if (Test-Path $calls) { @(Get-Content $calls | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @() }
+}
+$getConfig = { if (Test-Path $config) { Get-Content -Raw $config } else { '' } }
+$hasCall = { param($needle) (& $getCalls) -contains $needle }
 
 Write-Host ''
 Write-Host 'install.ps1 behaviour tests'
@@ -128,10 +132,10 @@ try {
     Check 'happy path: exits 0'                          ($r.Code -eq 0)
     Check 'happy path: extension file landed'            (Test-Path (Join-Path $cfg 'Extensions/no-ads.js'))
     Check 'happy path: file is the published one'        ((Get-Item (Join-Path $cfg 'Extensions/no-ads.js')).Length -gt 10000)
-    Check 'happy path: enabled in the config'            ((& $configText) -match 'no-ads\.js')
-    Check 'happy path: existing extension preserved'     ((& $configText) -match 'other\.js')
-    Check 'happy path: config extensions was called'     ((& $callsText) -match '(?m)^config extensions no-ads\.js$')
-    Check 'happy path: apply was called'                 ((& $callsText) -match '(?m)^apply$')
+    Check 'happy path: enabled in the config'            ((& $getConfig) -match 'no-ads\.js')
+    Check 'happy path: existing extension preserved'     ((& $getConfig) -match 'other\.js')
+    Check 'happy path: config extensions was called'     (& $hasCall 'config extensions no-ads.js')
+    Check 'happy path: apply was called'                 (& $hasCall 'apply')
     Check 'happy path: tells the user it finished'       ($r.Output -match 'Finished')
 
     # 3. Second run: already enabled, nothing duplicated ---------------------
@@ -140,15 +144,15 @@ try {
     Set-Content -Path $calls -Value ''
     $r = Run-Installer
     Check 'second run: exits 0'                          ($r.Code -eq 0)
-    Check 'second run: does not enable it again'         (-not ((& $callsText) -match '(?m)^config extensions'))
+    Check 'second run: does not enable it again'         (-not ((& $getCalls) | Where-Object { $_ -like 'config extensions*' }))
     Check 'second run: says it is already enabled'       ($r.Output -match 'already enabled')
-    Check 'second run: still applies the patch'          ((& $callsText) -match '(?m)^apply$')
+    Check 'second run: still applies the patch'          (& $hasCall 'apply')
 
     # 4. apply fails, no backup -> falls back to backup apply ----------------
     Reset-State
     Set-Content -Path (Join-Path $sandbox 'apply_fail') -Value ''
     $r = Run-Installer
-    Check 'apply fails, no backup: falls back to backup apply' ((& $callsText) -match '(?m)^backup apply$')
+    Check 'apply fails, no backup: falls back to backup apply' (& $hasCall 'backup apply')
     Check 'apply fails, no backup: exits 0 after fallback'     ($r.Code -eq 0)
 
     # 5. apply fails, backup present -> never refresh the backup ------------
@@ -156,7 +160,7 @@ try {
     New-Item -ItemType Directory -Force -Path (Join-Path $cfg 'Backup') | Out-Null
     Set-Content -Path (Join-Path $sandbox 'apply_fail') -Value ''
     $r = Run-Installer
-    Check 'apply fails, backup present: no backup apply'  (-not ((& $callsText) -match '(?m)^backup apply$'))
+    Check 'apply fails, backup present: no backup apply'  (-not (& $hasCall 'backup apply'))
     Check 'apply fails, backup present: exits non-zero'   ($r.Code -ne 0)
     Check 'apply fails, backup present: points at INSTALL.md' ($r.Output -match 'INSTALL\.md')
 
@@ -165,7 +169,7 @@ try {
     $r = Run-Installer -Extra @{ 'NOADS_DRY_RUN' = '1' }
     Check 'dry run: exits 0'                             ($r.Code -eq 0)
     Check 'dry run: downloads nothing'                   (-not (Test-Path (Join-Path $cfg 'Extensions')))
-    Check 'dry run: runs no mutating spicetify command'  (-not ((& $callsText) -match '(?m)^(config|apply|backup)'))
+    Check 'dry run: runs no mutating spicetify command'  (-not ((& $getCalls) | Where-Object { $_ -match '^(config|apply|backup)' }))
     Check 'dry run: says nothing was changed'            ($r.Output -match 'nothing on this computer was changed')
 }
 finally {
