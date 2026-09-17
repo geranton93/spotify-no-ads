@@ -117,3 +117,22 @@ engine state every 30 s.
   client about entitlements.
 - **Blocking the ad host at the network layer**: the ad inventory is fetched through the same
   `spclient` host as normal API traffic; a hosts-file block would break more than it fixes.
+
+## UI hygiene
+
+Hiding an ad surface is not enough if the surface leaves a hole. Two things the extension touches:
+
+- **Ad containers** (`.main-leaderboardComponent-container`, `.sponsor-container`, `hpto` testids, the
+  top-bar upgrade button) are removed with `display: none !important`.
+- **Spotify's own top-bar separator.** The clean bundle declares it as
+  `.MtYp_qNgYodAxs42_Z7u { background: #fff; width: 1px; height: 25px; margin: 16px }` (Spicetify
+  renames the class to `main-actionButtons-spacer` and rewrites `#fff` to `var(--spice-text)`, which
+  its color scheme defines as `#ffffff` - a no-op for the colour). The same element also carries the
+  action-buttons class, whose `padding-inline: 8px 0` beats `width: 1px` under
+  `box-sizing: border-box`: the border box grows to 8px and the background paints the padding box, so
+  the divider shows up as a solid 8x25 white block. The extension restores the declared geometry
+  (`width: 1px`, no inline padding), which turns it back into a hairline. Set `display: none` on that
+  selector instead if you prefer no separator at all.
+
+Note that this element is a *placeholder*: Spotify only renders it while its action buttons (bell,
+friends) are absent, so in a fully loaded top bar it is not in the DOM at all.

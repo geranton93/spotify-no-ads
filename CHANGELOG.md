@@ -3,6 +3,17 @@
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/),
 versioning: [SemVer](https://semver.org/).
 
+## [1.2.1] - 2026-09-17
+
+### Fixed
+
+- **Top bar white block.** Spotify's own separator between the action area and the profile avatar
+  (`.main-actionButtons-spacer`) is declared as a 1px line, but the element also carries the
+  action-buttons class whose `padding-inline: 8px 0` widens the border box to 8px under
+  `box-sizing: border-box` - and the background paints the padding box, so the divider rendered as a
+  solid 8x25 white block instead of a hairline. The UI-hygiene CSS now restores the declared 1px
+  geometry. Applies only to that element; to drop the separator entirely, set `display: none` on it
+  (the rule carries a comment saying so).
 ## [1.2.0] - 2026-09-17
 
 First public release of the extension as maintained in this repository. Behavioural summary of the

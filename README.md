@@ -42,7 +42,7 @@ watchdog because the client re-enables its ad managers after player/product-stat
 | D | **Interception** | Wraps `createSlot` (new slots immediately get the dead endpoint) and `subscribeToInStreamAds` (any ad message → clear the slot, ask the engine to skip). |
 | E | **Last resort** | If an ad ever becomes the current playback item, end it and — only while it is current — force output volume to 0 so nothing is audible. Restores from a persisted checkpoint, so a restart can never strand the player muted. |
 
-Plus UI hygiene: the upgrade CTA / in-app messaging flags and CSS for ad containers.
+Plus UI hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and a repair for Spotify's own top-bar separator (declared as a 1px hairline, rendered as an 8x25 white block because its own padding widens the box the background paints - see `docs/how-it-works.md#ui-hygiene`).
 
 Layers A–C remove the cause. D and E exist so that a future client change degrades into "still no
 audible ad" instead of "ads are back".

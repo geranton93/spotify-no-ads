@@ -43,7 +43,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.2.1';
 
   const CFG = {
     killAdServerEndpoint: true,     // A: redirect every ad slot's ad-server endpoint
@@ -436,11 +436,23 @@
     const style = document.createElement('style');
     style.id = 'no-ads-style';
     style.textContent = [
-      '.main-leaderboardComponent-container',
-      '.sponsor-container',
-      'div[data-testid*="hpto"]',
-      '.main-topBar-UpgradeButton',
-    ].join(', ') + ' { display: none !important; }';
+      // ad surfaces
+      [
+        '.main-leaderboardComponent-container',
+        '.sponsor-container',
+        'div[data-testid*="hpto"]',
+        '.main-topBar-UpgradeButton',
+      ].join(', ') + ' { display: none !important; }',
+
+      // Top bar hairline. Spotify's own separator between the action area and the profile avatar is
+      // declared as a 1px line (clean bundle: background:#fff;width:1px;height:25px;margin:16px),
+      // but the same element also carries the action-buttons class, whose padding-inline:8px 0
+      // widens the border box to 8px under box-sizing:border-box - and the background paints the
+      // padding box, so the divider renders as an 8x25 white block. Restore the declared hairline.
+      // To drop the separator entirely instead, set 'display: none !important;' here.
+      '.main-actionButtons-spacer { width: 1px !important; min-width: 1px !important;'
+      + ' padding-inline: 0 !important; flex: 0 0 auto !important; }',
+    ].join('\n');
     document.head.appendChild(style);
     log('ad container CSS installed');
   }
