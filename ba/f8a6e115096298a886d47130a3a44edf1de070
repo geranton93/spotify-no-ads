@@ -1,0 +1,20 @@
+CHANGELOG.md
+  h_be7b56bb4932a4 6-16
+README.md
+  h_be7b56bb4932a4 45
+docs/how-it-works.md
+  h_be7b56bb4932a4 120-138
+extensions/no-ads.js
+  h_be7b56bb4932a4 46,439-455
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "baf8a6e115096298a886d47130a3a44edf1de070",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
