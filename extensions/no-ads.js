@@ -43,7 +43,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.1';
+  const VERSION = '1.2.2';
 
   const CFG = {
     killAdServerEndpoint: true,     // A: redirect every ad slot's ad-server endpoint
@@ -452,6 +452,13 @@
       // To drop the separator entirely instead, set 'display: none !important;' here.
       '.main-actionButtons-spacer { width: 1px !important; min-width: 1px !important;'
       + ' padding-inline: 0 !important; flex: 0 0 auto !important; }',
+      // Top bar history spacer. Spotify ships two distinct classes for this spacer - the macOS
+      // window-controls layout wants 52x12, the other layout 28x16 - and Spicetify's css-map maps
+      // BOTH obfuscated names onto this one class, so the later rule (28x16) wins everywhere. On
+      // macOS that leaves the spacer 24px too narrow and the back/forward buttons crowd the traffic
+      // lights. Restore the macOS variant (measured: chevrons move from x=81 to x=105).
+      '.main-globalNav-historyButtonsSpacer { width: calc(52px / (var(--zoom-level,100) / 100)) !important;'
+      + ' height: calc(12px / (var(--zoom-level,100) / 100)) !important; }',
     ].join('\n');
     document.head.appendChild(style);
     log('ad container CSS installed');

@@ -134,5 +134,14 @@ Hiding an ad surface is not enough if the surface leaves a hole. Two things the 
   (`width: 1px`, no inline padding), which turns it back into a hairline. Set `display: none` on that
   selector instead if you prefer no separator at all.
 
+- **The top bar history spacer.** Spotify ships two classes for it - `.GCNvWhUGp84HhAuncKQ1`
+  (`height: calc(12px / zoom); width: calc(52px / zoom)`) for the macOS window-controls layout and
+  `.bjRw1FNwvXxSrC054Bus` (`16px / 28px`) for the other layout. Spicetify's css-map renames *both* to
+  `main-globalNav-historyButtonsSpacer`, so both rules match the single element and the later one
+  (28px) wins on every platform. On macOS the spacer is therefore 24px too narrow and the
+  back/forward buttons sit against the traffic lights. The extension re-applies the macOS variant
+  (`52px / 12px`, zoom-aware). This is a Spicetify css-map collision, not a Spotify bug: in the
+  unpatched bundle the two rules belong to two different class names.
+
 Note that this element is a *placeholder*: Spotify only renders it while its action buttons (bell,
 friends) are absent, so in a fully loaded top bar it is not in the DOM at all.

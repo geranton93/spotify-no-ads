@@ -3,6 +3,18 @@
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/),
 versioning: [SemVer](https://semver.org/).
 
+## [1.2.2] - 2026-09-17
+
+### Fixed
+
+- **Back/forward buttons crowding the macOS window controls.** Spotify ships two classes for the top
+  bar history spacer: one for the macOS window-controls layout (`width: calc(52px / zoom)`,
+  `height: calc(12px / zoom)`) and one for the other layout (28px / 16px). Spicetify's css-map maps
+  both obfuscated names onto the single class `main-globalNav-historyButtonsSpacer`, so the later
+  rule (28px) wins everywhere and on macOS the spacer is 24px too narrow - the history buttons touch
+  the traffic lights. The UI-hygiene CSS restores the macOS variant: measured at a 1512px viewport,
+  the chevrons move from x=81 to x=105.
+
 ## [1.2.1] - 2026-09-17
 
 ### Fixed

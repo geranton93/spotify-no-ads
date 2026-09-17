@@ -42,17 +42,7 @@ watchdog because the client re-enables its ad managers after player/product-stat
 | D | **Interception** | Wraps `createSlot` (new slots immediately get the dead endpoint) and `subscribeToInStreamAds` (any ad message → clear the slot, ask the engine to skip). |
 | E | **Last resort** | If an ad ever becomes the current playback item, end it and — only while it is current — force output volume to 0 so nothing is audible. Restores from a persisted checkpoint, so a restart can never strand the player muted. |
 
-Plus UI hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and a repair for Spotify's own top-bar separator (declared as a 1px hairline, rendered as an 8x25 white block because its own padding widens the box the background paints - see `docs/how-it-works.md#ui-hygiene`).
-
-Layers A–C remove the cause. D and E exist so that a future client change degrades into "still no
-audible ad" instead of "ads are back".
-
-## What it deliberately does NOT do
-
-- **No ad-testing service calls** (`addPlaytime`, `insertAd`). That is ad-fraud tooling; the layers
-  above make it unnecessary.
-- **No entitlement or product spoofing.** (`putOverridesValues({pairs:{ads:"0"}})` is inert on
-  1.3.x anyway — measured, see `docs/how-it-works.md`.)
+Plus UI hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and repairs for two Spicetify class-mapping artefacts in the top bar - the action-area separator that renders as an 8x25 white block instead of a 1px hairline, and the history spacer that is 24px too narrow on macOS so the back/forward buttons crowd the traffic lights (see `docs/how-it-works.md#ui-hygiene`).
 - **Nothing leaves your machine.** No account changes, no server-side requests beyond what the
   client already makes. The only network effect is that ad requests now fail.
 
