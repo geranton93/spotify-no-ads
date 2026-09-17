@@ -118,6 +118,37 @@ engine state every 30 s.
 - **Blocking the ad host at the network layer**: the ad inventory is fetched through the same
   `spclient` host as normal API traffic; a hosts-file block would break more than it fixes.
 
+## Playback quality
+
+Ad blocking and quality are separate subsystems, and only the second one is entitlement-bound.
+
+| Setting | Native identifier | Notes |
+|---|---|---|
+| Streaming quality | `audio.play_bitrate_non_metered_enumeration` | 3 = Very high (the client's own request) |
+| Account cap | `audio-quality` (product state) | 0 on a free account; enforced by Spotify, not by the client |
+| Download quality | `audio.sync_bitrate_enumeration` | downloads are Premium-only |
+| Loudness normalisation | `audio.normalize_v2` | user setting |
+| Volume level | `audio.loudness.environment` | 1 = Normal |
+| Adjust quality automatically | `audio.allow_downgrade` | the one knob this extension flips: off at every launch |
+
+All of them are readable at runtime through the client's own settings surface:
+
+```js
+Spicetify.Platform.SettingsAPI.quality.<field>.getValue()   // and .setValue(x) where writable
+NoAds.quality()                                             // the combined report
+```
+
+The delivered stream is reported by the playback service (`getPlaybackInfo`): `codecName`,
+`fileBitrate`, `targetBitrate`, `advisedBitrate`. `advisedBitrate` is what the *connection* would
+support - on a healthy link it is an order of magnitude above `fileBitrate`, which is how you can
+tell that the limit is the account and not the network.
+
+**Why the extension does not raise the ceiling.** Requesting a higher tier means spoofing the product
+state, which (a) is what this project publicly promises not to do, (b) does not survive server-side
+enforcement - the file is issued per entitlement, and (c) was already measured to be inert for the
+sibling case: `putOverridesValues` on the product state did not change what the client reported.
+So the honest deliverable is: keep the client from asking for *less*, and make the truth visible.
+
 ## UI hygiene
 
 Hiding an ad surface is not enough if the surface leaves a hole. Two things the extension touches:

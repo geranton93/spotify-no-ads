@@ -43,6 +43,30 @@ watchdog because the client re-enables its ad managers after player/product-stat
 | E | **Last resort** | If an ad ever becomes the current playback item, end it and — only while it is current — force output volume to 0 so nothing is audible. Restores from a persisted checkpoint, so a restart can never strand the player muted. |
 
 Plus top-bar hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and three chrome repairs - the action-area separator that rendered as an 8x25 white block instead of a 1px hairline, the history spacer that was 24px too narrow on macOS so the back/forward buttons crowded the traffic lights, and the Marketplace nav entry whose filled chip stood out among the plain icons of the cluster it lives in (see `docs/how-it-works.md#ui-hygiene`).
+
+## Quality (the second goal)
+
+Removing ads is half the job; the other half is not lying about quality. What this extension does
+about it, and what it will never do:
+
+| | |
+|---|---|
+| **No silent downgrades** | The client ships an "adjust quality automatically" switch (native key `audio.allow_downgrade`). It is switched off at every launch, so a momentary bad-network heuristic can never drop the stream below what the account is allowed. |
+| **An honest report** | `NoAds.quality()` prints what the setting asks for, what the account allows and what is actually streaming (codec, bitrate, advised bitrate) - visible without a debugger, in one command. |
+| **No tier spoofing** | The ceiling is served by Spotify, not decided by the client. A free account streams 160 kbps Ogg, and the extension says so out loud. Faking a Premium product state would be entitlement circumvention, would not survive server-side enforcement, and is not what this project is. |
+
+Measured on a free account: setting `Very high` (3), account cap `0`, network advice 1,400,000 bps,
+delivered `vorbis 160000` - the ceiling is the tier, not the client and not the connection. For full
+quality, play local files (they go through the same pipeline at their native bitrate) or use Premium.
+On Bluetooth headphones the codec re-encode (~256 kbps AAC; macOS does not support LDAC) masks much of
+the difference anyway - wired output is what reveals it.
+
+## What it deliberately does NOT do
+
+- **No ad-testing service calls** (`addPlaytime`, `insertAd`). That is ad-fraud tooling, and the
+  layers above make it unnecessary.
+- **No entitlement or product spoofing**, including the audio-quality tier. The account ceiling is
+  enforced when the stream is issued, so a client-side fake would change nothing except the truth.
 - **Nothing leaves your machine.** No account changes, no server-side requests beyond what the
   client already makes. The only network effect is that ad requests now fail.
 

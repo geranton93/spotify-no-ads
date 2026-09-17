@@ -3,6 +3,22 @@
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/),
 versioning: [SemVer](https://semver.org/).
 
+## [1.3.0] - 2026-09-17
+
+### Added
+
+- **Quality is now a first-class goal, alongside ad removal.**
+  - `NoAds.quality()` (and `NoAds.verify().quality`) reports the truth about the stream: the quality
+    setting, the account's cap, the auto-downgrade switch, the delivered codec and bitrate, and the
+    bitrate the connection would support.
+  - The client's own "adjust quality automatically" switch (native key `audio.allow_downgrade`) is
+    turned off at every launch, so the stream is never silently dropped below the tier. Applied once,
+    read back, logged; it is a user-facing setting, not an entitlement change.
+- Documented the boundary explicitly: the account ceiling is served by Spotify, so a free account
+  stays at 160 kbps Ogg and the extension reports that instead of spoofing a product state. Measured
+  on a free account: setting `3` (Very high), account cap `0`, network advice 1,400,000, delivered
+  `vorbis 160000`.
+
 ## [1.2.3] - 2026-09-17
 
 ### Changed

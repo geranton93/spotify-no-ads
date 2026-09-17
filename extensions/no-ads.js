@@ -32,6 +32,13 @@
  *
  * Deliberately not used: ad-testing service calls (addPlaytime/insertAd), entitlement changes.
  *
+ * Quality (second goal beside ad removal): the extension flips the client's own "adjust quality
+ * automatically" switch off (SettingsAPI.quality.autoAdjustQuality, native key audio.allow_downgrade)
+ * so the stream is never silently downgraded below what the account is allowed, and it publishes
+ * what is actually streaming - NoAds.quality(), and NoAds.verify().quality. It never spoofs the
+ * product tier: the ceiling is served by Spotify, not decided by the client, so a free account stays
+ * at 160 kbps Ogg and the extension says so out loud instead of pretending otherwise.
+ *
  * Interval units (measured on 1.3.0.277): the Settings update* methods take MICROSECONDS while
  * getSlotSettings returns MILLISECONDS — writing 1800000 reads back as 1800000000 in the same
  * call pair, and the client's own leaderboard code consumes the read value as milliseconds
@@ -43,7 +50,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.3';
+  const VERSION = '1.3.0';
 
   const CFG = {
     killAdServerEndpoint: true,     // A: redirect every ad slot's ad-server endpoint
@@ -63,6 +70,15 @@
     watchdogMs: 2000,
     reassertNativeMs: 30000,
     reassertStateMs: 30000,
+    reassertQualityMs: 30000,
+    // Quality policy - the second goal beside ad removal: keep the client from silently downgrading
+    // below what the account allows. The knob is SettingsAPI.quality.autoAdjustQuality, native key
+    // "audio.allow_downgrade", i.e. a normal user-facing setting, so flipping it is not an
+    // entitlement change. The account's own ceiling is *reported*, never faked: on a free tier the
+    // streaming service caps at 160 kbps Ogg no matter what the client asks for (measured).
+    disableQualityDowngrade: true,
+    // Read-only: publish the delivered stream (codec, bitrate, advised bitrate) via NoAds.quality().
+    reportQuality: true,
   };
 
   // Authoritative slot ids from the client's own enum (Slots proto); the engine's live list from
@@ -86,7 +102,7 @@
     applied: { native: false, nativeAt: null, stateOff: false, stateAt: null, intercept: false,
                managers: [], settingsClient: false },
     observed: { adsProductValue: null, audioEnabled: null, vtoEnabled: null,
-                adEnabledEngine: null, lastAdAt: null },
+                adEnabledEngine: null, lastAdAt: null, quality: null },
     log: [],
     lastError: null,
   };
@@ -476,6 +492,7 @@
 
   let lastNative = Date.now();
   let lastState = Date.now();
+  let lastQuality = Date.now();
   let disposed = false;
 
   function watchdog() {
@@ -504,10 +521,120 @@
         if (st) state.observed.adEnabledEngine = st.ad_enabled;
       }, 'read engine state');
     }
+    if (CFG.reportQuality && now - lastQuality > CFG.reassertQualityMs) {
+      lastQuality = now;
+      void refreshQuality().catch(() => {});
+    }
     installInterception();
     applyUiFlags();
     applyCss();
     guard();
+  }
+
+  /* ---------- H. playback quality (policy + honest report) ---------- */
+
+  let playbackClass = null;
+
+  // The playback service is not an ads service, so it is discovered on its own: the class whose
+  // prototype carries getPlaybackInfo(). Cached after the first scan.
+  function findPlaybackClass() {
+    if (playbackClass) return playbackClass;
+    const chunk = globalThis.rspackChunk || globalThis.webpackChunkclient_web ||
+                  globalThis.rspackChunkclient_web;
+    if (!chunk || typeof chunk.push !== 'function') return null;
+    try {
+      const require = chunk.push([[Symbol()], {}, (n) => n]);
+      for (const id of Object.keys(require.m || {})) {
+        let moduleExports;
+        try { moduleExports = require(id); } catch (e) { continue; }
+        if (!moduleExports) continue;
+        for (const value of Object.values(moduleExports)) {
+          if (typeof value === 'function' && value.prototype &&
+              typeof value.prototype.getPlaybackInfo === 'function') {
+            playbackClass = value;
+            log('playback service class discovered');
+            return playbackClass;
+          }
+        }
+      }
+    } catch (e) { state.lastError = 'playback scan: ' + (e && e.message); }
+    return null;
+  }
+
+  const qualitySettings = () => {
+    const q = S()?.Platform?.SettingsAPI?.quality;
+    return q && typeof q === 'object' ? q : null;
+  };
+
+  async function readSetting(field) {
+    const q = qualitySettings();
+    if (!q || !q[field] || typeof q[field].getValue !== 'function') return null;
+    try { return await q[field].getValue(); } catch (e) { return null; }
+  }
+
+  // Read-only. Makes the ceiling visible instead of guessed: what the setting asks for, what the
+  // account is allowed, and what is actually streaming right now.
+  async function readQuality() {
+    const out = {
+      streamingQualitySetting: await readSetting('streamingQuality'),
+      accountCap: await readSetting('maxSupportedQuality'),
+      autoDowngrade: await readSetting('autoAdjustQuality'),
+      normalizeVolume: await readSetting('normalizeVolume'),
+      volumeLevel: await readSetting('volumeLevel'),
+      downloadQualitySetting: await readSetting('downloadAudioQuality'),
+      codec: null, bitrate: null, advisedBitrate: null, strategy: null,
+    };
+    const PB = findPlaybackClass();
+    const transport = getTransport();
+    if (PB && transport) {
+      try {
+        const info = await new PB(transport).getPlaybackInfo();
+        if (info) {
+          out.codec = info.codecName || null;
+          out.bitrate = info.fileBitrate == null ? null : String(info.fileBitrate);
+          out.advisedBitrate = info.advisedBitrate == null ? null : String(info.advisedBitrate);
+          out.strategy = info.strategy || null;
+        }
+      } catch (e) { out.streamError = (e && e.message) || String(e); }
+    }
+    if (out.accountCap !== null && out.bitrate !== null) {
+      const kbps = Math.round(Number(out.bitrate) / 1000);
+      out.note = (Number(out.accountCap) === 0)
+        ? 'account tier caps the stream (' + kbps + ' kbps ' + (out.codec || '') + '); the client '
+          + 'already asks for its maximum - the ceiling comes from the account, not from the client, '
+          + 'so no web-layer change can raise it'
+        : 'account allows the configured quality (' + kbps + ' kbps ' + (out.codec || '') + ')';
+    }
+    return out;
+  }
+
+  async function refreshQuality() {
+    if (!CFG.reportQuality) return;
+    state.observed.quality = await readQuality();
+  }
+
+  // The one quality lever that is legitimately ours to flip: the client's own "adjust quality
+  // automatically" switch (audio.allow_downgrade). It only stops silent downgrades below the tier -
+  // it never asks for more than the account owns, and the report above always states the truth.
+  async function applyQualityPolicy() {
+    if (!CFG.disableQualityDowngrade) return;
+    const q = qualitySettings();
+    if (!q || !q.autoAdjustQuality || typeof q.autoAdjustQuality.setValue !== 'function') return;
+    try {
+      const before = await q.autoAdjustQuality.getValue();
+      if (before === true) {
+        await q.autoAdjustQuality.setValue(false);
+        const after = await q.autoAdjustQuality.getValue();
+        state.applied.qualityDowngradeDisabled = (after === false);
+        log('quality auto-downgrade disabled', 'read back: ' + String(after));
+      } else {
+        state.applied.qualityDowngradeDisabled = true;
+      }
+    } catch (e) {
+      state.counters.errors++;
+      state.lastError = 'quality policy: ' + (e && e.message);
+      log('error', state.lastError);
+    }
   }
 
   /* ---------- bootstrap ---------- */
@@ -533,11 +660,15 @@
         applied: state.applied,
         observed: state.observed,
         managers: managersEnabled(),
+        quality: state.observed.quality,
         settingsServiceReachable: !!state.applied.settingsClient,
         connectorPresent: !!getConnector(),
         log: state.log.slice(-20),
         lastError: state.lastError,
       }, null, 1);
+    };
+    state.quality = function () {
+      return readQuality().then((q) => JSON.stringify(q, null, 1));
     };
     state.reapply = function () {
       void note(() => applyNativeSettings(), 'manual native');
@@ -562,6 +693,8 @@
     };
 
     log('no-ads starting', S().version);
+    void applyQualityPolicy().catch(() => {});
+    void refreshQuality().catch(() => {});
     void note(() => applyNativeSettings(), 'initial native');
     void note(async () => { await applyEngineState(); state.observed.adEnabledEngine = (await readEngineState())?.ad_enabled; }, 'initial engine state');
     disableManagers();
