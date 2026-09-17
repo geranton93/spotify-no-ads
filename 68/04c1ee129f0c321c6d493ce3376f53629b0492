@@ -1,0 +1,25 @@
+CHANGELOG.md
+  s_0502316ac45ce6::t_d7715e9e46a625 6-17
+README.md
+  s_0502316ac45ce6::t_a62e39459f156b 45
+docs/how-it-works.md
+  s_0502316ac45ce6::t_098c01fd038aac 137-145
+extensions/no-ads.js
+  s_0502316ac45ce6::t_7467ee22a4ab91 46,455-461
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6804c1ee129f0c321c6d493ce3376f53629b0492",
+  "prompts": {},
+  "sessions": {
+    "s_0502316ac45ce6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d3948bb1-0447-4d7d-9e8f-0fcd4847f576",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
