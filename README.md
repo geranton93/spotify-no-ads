@@ -147,6 +147,7 @@ See `docs/verification.md` for what each signal proves and what it does not.
 |---|---|
 | [`INSTALL.md`](INSTALL.md) | **Install guide for non-programmers** — the one-line installer, the manual path, troubleshooting, uninstall |
 | `install.sh` / `install.ps1` | The one-line installers themselves (macOS/Linux and Windows) |
+| `tests/install-tests.sh` / `tests/install-tests.ps1` | Behaviour tests for both installers (stubbed `spicetify`, no real client touched). CI runs them on Linux **and on a real Windows runner** |
 | `docs/how-it-works.md` | The client architecture it targets, exact API surface, the traps (unit conversions, settings that look writable but are not), and how each layer was verified |
 | `docs/verification.md` | Independent evidence: the ad engine's impression counter as the falsifier, the acoustic method and its calibration limits |
 | `docs/maintenance.md` | What to re-check after a Spotify update, how to reinstall, how to roll back |

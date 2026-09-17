@@ -39,3 +39,19 @@ jobs:
 
       - name: Version string present
         run: grep -q "VERSION = '1\." extensions/no-ads.js && echo "version found"
+
+      - name: Installer behaviour tests (Linux)
+        run: |
+          sh tests/install-tests.sh
+          pwsh -NoProfile -File tests/install-tests.ps1
+
+  windows:
+    # The Windows installer is exercised on a real Windows runner: a stub spicetify is put on PATH,
+    # the client is never touched, and the extension is fetched from the published URL.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer behaviour tests (Windows)
+        shell: pwsh
+        run: ./tests/install-tests.ps1

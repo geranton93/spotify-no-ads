@@ -13,7 +13,7 @@
 #>
 
 $ErrorActionPreference = 'Stop'
-$Raw      = 'https://raw.githubusercontent.com/geranton93/spotify-no-ads/main'
+$Raw      = if ($env:NOADS_SOURCE_URL) { $env:NOADS_SOURCE_URL } else { 'https://raw.githubusercontent.com/geranton93/spotify-no-ads/main' }
 $ExtFile  = 'no-ads.js'
 # Dry run (changes nothing, just explains):  $env:NOADS_DRY_RUN=1; iwr -useb <this file> | iex
 $DryRun   = ($env:NOADS_DRY_RUN -eq '1')
@@ -42,7 +42,11 @@ Write-Host "1/4  Spicetify found: $spicetifyVersion"
 $configFile = $null
 try { $configFile = (spicetify -c 2>$null | Select-Object -Last 1) } catch { }
 if ($configFile) { $configDir = Split-Path $configFile -Parent } else { $configDir = $null }
-if (-not $configDir) { $configDir = Join-Path $env:APPDATA 'spicetify' }
+if (-not $configDir) {
+    if ($env:APPDATA)     { $configDir = Join-Path $env:APPDATA 'spicetify' }
+    elseif ($env:HOME)    { $configDir = Join-Path $env:HOME '.config/spicetify' }
+    else                  { $configDir = Join-Path ([System.IO.Path]::GetTempPath()) 'spicetify' }
+}
 $extDir = Join-Path $configDir 'Extensions'
 Write-Host "2/4  Spicetify folder: $configDir"
 
@@ -79,14 +83,20 @@ if ($DryRun) {
     exit 0
 }
 Write-Host '4/4  patching Spotify (it closes and reopens once; an untouched backup copy is kept) ...'
-Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+if (-not $env:NOADS_NO_APP_CONTROL) {
+    Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+}
 Start-Sleep -Seconds 3
-$log = Join-Path $env:TEMP 'no-ads-apply.log'
+$logDir = if ($env:TEMP) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { [System.IO.Path]::GetTempPath() }
+$log = Join-Path $logDir 'no-ads-apply.log'
 
 # "spicetify backup apply" is correct right after a Spotify update (the client is unpatched again),
 # but on an already-patched client it would refresh the backup with patched files. Only fall back to
-# it when no backup exists yet.
-$backupExists = (Test-Path (Join-Path $configDir 'Backup')) -or (Test-Path (Join-Path $env:LOCALAPPDATA 'spicetify\Backup'))
+# it when no backup exists yet. LocalAppData only exists on Windows, so it is probed carefully.
+$backupDirs = @((Join-Path $configDir 'Backup'))
+if ($env:LOCALAPPDATA) { $backupDirs += (Join-Path $env:LOCALAPPDATA 'spicetify\Backup') }
+$backupExists = $false
+foreach ($dir in $backupDirs) { if (Test-Path $dir) { $backupExists = $true; break } }
 
 spicetify apply *> $log
 $applied = ($LASTEXITCODE -eq 0)
@@ -103,7 +113,9 @@ if (-not $applied) {
     exit 1
 }
 Write-Host $note
-Start-Process 'spotify:'
+if (-not $env:NOADS_NO_APP_CONTROL -and -not $env:NOADS_SKIP_LAUNCH) {
+    try { Start-Process 'spotify:' } catch { Write-Host '     (could not start Spotify automatically - open it yourself)' }
+}
 
 Write-Host ''
 Write-Host 'Finished - Spotify now starts without ads.'

@@ -14,7 +14,7 @@
 
 set -eu
 
-RAW="https://raw.githubusercontent.com/geranton93/spotify-no-ads/main"
+RAW="${NOADS_SOURCE_URL:-https://raw.githubusercontent.com/geranton93/spotify-no-ads/main}"
 EXT_FILE="no-ads.js"
 DRY="${NOADS_DRY_RUN:-}"
 
@@ -86,6 +86,7 @@ fi
 
 OSTYPE_KIND="$(uname -s)"
 quit_spotify() {
+  [ -n "${NOADS_NO_APP_CONTROL:-}" ] && return 0
   case "$OSTYPE_KIND" in
     Darwin) osascript -e 'tell application "Spotify" to quit' >/dev/null 2>&1 || true ;;
     *)      pkill -u "$(id -u)" -x spotify >/dev/null 2>&1 || true ;;
@@ -98,6 +99,8 @@ quit_spotify() {
   done
 }
 start_spotify() {
+  [ -n "${NOADS_NO_APP_CONTROL:-}" ] && return 0
+  [ -n "${NOADS_SKIP_LAUNCH:-}" ] && return 0
   case "$OSTYPE_KIND" in
     Darwin) open -a Spotify >/dev/null 2>&1 || true ;;
     *)      if command -v spotify >/dev/null 2>&1; then
