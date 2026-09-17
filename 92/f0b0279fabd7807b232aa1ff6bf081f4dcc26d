@@ -1,0 +1,14 @@
+.github/workflows/validate.yml
+  h_be7b56bb4932a4 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92f0b0279fabd7807b232aa1ff6bf081f4dcc26d",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
