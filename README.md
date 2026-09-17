@@ -10,6 +10,26 @@ no ads fetched → no ads scheduled → no ads played → nothing to mute
 
 ---
 
+## Install (no coding needed)
+
+**[Step-by-step guide for everyone → INSTALL.md](INSTALL.md)** — two copy-paste lines, no programming
+required, undoable at any time.
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+iwr -useb https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/install.ps1 | iex
+```
+
+The installer checks that Spicetify is present, downloads this extension into your Spicetify
+`Extensions` folder, enables it without touching your other extensions, and applies the patch. The
+manual three-command path (copy the file, `spicetify config extensions no-ads.js`, `spicetify apply`)
+is under [Install](#install) below, and the guide explains both.
+
 ## Why this exists
 
 Every Spicetify ad blocker in the wild silently died on Spotify 1.3.x. Two independent reasons:
@@ -125,6 +145,8 @@ See `docs/verification.md` for what each signal proves and what it does not.
 
 | Document | Contents |
 |---|---|
+| [`INSTALL.md`](INSTALL.md) | **Install guide for non-programmers** — the one-line installer, the manual path, troubleshooting, uninstall |
+| `install.sh` / `install.ps1` | The one-line installers themselves (macOS/Linux and Windows) |
 | `docs/how-it-works.md` | The client architecture it targets, exact API surface, the traps (unit conversions, settings that look writable but are not), and how each layer was verified |
 | `docs/verification.md` | Independent evidence: the ad engine's impression counter as the falsifier, the acoustic method and its calibration limits |
 | `docs/maintenance.md` | What to re-check after a Spotify update, how to reinstall, how to roll back |
