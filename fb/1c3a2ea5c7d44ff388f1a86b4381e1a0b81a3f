@@ -1,0 +1,14 @@
+.github/workflows/windows-e2e.yml
+  h_be7b56bb4932a4 4,10-13,37-76,113,119-120,125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb1c3a2ea5c7d44ff388f1a86b4381e1a0b81a3f",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
