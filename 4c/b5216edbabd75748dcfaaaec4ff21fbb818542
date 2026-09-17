@@ -1,0 +1,16 @@
+.github/workflows/validate.yml
+  h_be7b56bb4932a4 24-29
+install.ps1
+  h_be7b56bb4932a4 18-19,50-56,67-68,71,75-80,89,92-103,105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4cb5216edbabd75748dcfaaaec4ff21fbb818542",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
