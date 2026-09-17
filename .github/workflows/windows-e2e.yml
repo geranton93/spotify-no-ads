@@ -1,11 +1,15 @@
 name: windows-e2e
 
 # The full Windows end-to-end, on demand: a real Spotify desktop client, a real Spicetify, and our
-# one-line installer - then it verifies that the extension is enabled in the Spicetify config AND
+# one-line installer - then it verifies that the extension is enabled in Spicetify's config AND
 # present inside the patched client bundle. Nothing here is stubbed.
 #
 # Kept out of the push pipeline on purpose: it installs third-party software from the internet and
 # takes several minutes, so it is run when the Windows path is being changed or questioned.
+#
+# Note: Spicetify's install.ps1 refuses to run as administrator (the CI runner is admin) and its
+# interactive prompt cannot be answered headless, so Spicetify is installed with a package manager -
+# which is one of the officially documented ways.
 #
 # Run it with:  gh workflow run windows-e2e.yml
 
@@ -30,11 +34,46 @@ jobs:
       - name: Install the real Spicetify
         shell: pwsh
         run: |
-          iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex
-          $cli = Join-Path $env:USERPROFILE '.spicetify\spicetify.exe'
-          if (-not (Test-Path $cli)) { throw "spicetify was not installed at $cli" }
-          "spicetify version: $(& $cli --version)"
-          $cli | Out-File -Append -Encoding ascii $env:GITHUB_PATH
+          # winget first, choco as the fallback; both are documented install paths and work headless
+          $installed = $false
+          try {
+            winget install --id Spicetify.Spicetify --accept-source-agreements --accept-package-agreements --disable-interactivity
+            if ($LASTEXITCODE -eq 0) { $installed = $true }
+          } catch { "winget failed: $_" }
+          if (-not $installed) {
+            choco install spicetify-cli -y --no-progress
+            $installed = $true
+          }
+          $found = Get-Command spicetify -ErrorAction SilentlyContinue
+          if (-not $found) {
+            $candidates = @(
+              (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\spicetify.exe'),
+              (Join-Path $env:USERPROFILE '.spicetify\spicetify.exe'),
+              'C:\ProgramData\chocolatey\bin\spicetify.exe'
+            )
+            foreach ($c in $candidates) {
+              if (Test-Path $c) { Split-Path $c -Parent | Out-File -Append -Encoding ascii $env:GITHUB_PATH; $found = $c; break }
+            }
+          }
+          if (-not $found) { throw "spicetify is not installed / not on PATH" }
+          "spicetify: $(& $found --version)"
+
+      - name: Make sure the client's app files exist (first launch if needed)
+        shell: pwsh
+        run: |
+          $apps = Join-Path $env:APPDATA 'Spotify\Apps'
+          if (-not (Test-Path (Join-Path $apps 'xpui.spa'))) {
+            "the app payload is missing - launching Spotify once so it unpacks its files"
+            Start-Process (Join-Path $env:APPDATA 'Spotify\Spotify.exe')
+            for ($i = 0; $i -lt 12; $i++) {
+              Start-Sleep -Seconds 5
+              if (Test-Path (Join-Path $apps 'xpui.spa')) { break }
+            }
+            Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 3
+          }
+          if (-not (Test-Path (Join-Path $apps 'xpui.spa'))) { throw "the client still has no Apps\xpui.spa after a first launch" }
+          Get-ChildItem $apps | Select-Object Name, Length | Format-Table | Out-String | Write-Host
 
       - name: First patch (backup + apply) with the stock config
         shell: pwsh
@@ -42,7 +81,6 @@ jobs:
           Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 3
           spicetify backup apply
-          "patched with the stock configuration"
 
       - name: Run our one-line installer (exactly what a user pastes)
         shell: pwsh
@@ -65,9 +103,6 @@ jobs:
         shell: pwsh
         run: |
           $apps = Join-Path $env:APPDATA 'Spotify\Apps'
-          if (-not (Test-Path $apps)) { throw "no Apps folder under $apps - the client layout differs from the expectation" }
-          Get-ChildItem $apps | Select-Object Name, Length | Format-Table | Out-String | Write-Host
-
           $spa = Join-Path $apps 'xpui.spa'
           if (-not (Test-Path $spa)) { throw "xpui.spa not found in $apps" }
           $out = Join-Path $env:RUNNER_TEMP 'xpui-extract'
@@ -75,15 +110,16 @@ jobs:
 
           $ext = Get-ChildItem -Recurse $out -Filter 'no-ads.js' | Select-Object -First 1
           if (-not $ext) { throw "no-ads.js is not inside the patched client bundle (xpui.spa)" }
-          "extension inside the client bundle: $($ext.FullName) ($($ext.Length) bytes)"
+          "extension inside the patched client bundle: $($ext.FullName) ($($ext.Length) bytes)"
 
           $index = Get-ChildItem -Recurse $out -Filter 'index.html' | Select-Object -First 1
           if (-not $index) { throw "index.html not found inside the bundle" }
           $html = Get-Content -Raw $index.FullName
           if ($html -notmatch 'no-ads\.js') { throw "the bundle index.html does not load the extension" }
-          "the bundle index.html loads it: $(($html | Select-String -Pattern 'extensions/[a-zA-Z0-9._-]+\.js' -AllMatches).Matches.Value -join ', ')"
+          $loaded = ($html | Select-String -Pattern 'extensions/[a-zA-Z0-9._-]+\.js' -AllMatches).Matches.Value -join ', '
+          "the bundle index.html loads: $loaded"
 
       - name: Summary
         shell: pwsh
         run: |
-          Write-Host 'Windows end-to-end: real Spotify + real Spicetify + our installer -> extension enabled and present in the patched bundle.'
+          Write-Host 'Windows end-to-end passed: real Spotify + real Spicetify + our installer, extension enabled and inside the patched bundle.'
