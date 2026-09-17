@@ -21,6 +21,12 @@ jobs:
       - name: Shell tool parses
         run: bash -n tools/no-ads-check.sh
 
+      - name: Installer scripts parse
+        run: |
+          sh -n install.sh
+          bash -n install.sh
+          pwsh -NoProfile -Command '$null = [scriptblock]::Create((Get-Content -Raw ./install.ps1)); Write-Host "install.ps1 parses"'
+
       - name: No ad-testing or entitlement-spoofing calls in code
         run: |
           # comments legitimately mention these names when explaining what was rejected,
