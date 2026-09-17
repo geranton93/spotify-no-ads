@@ -1,0 +1,36 @@
+.github/workflows/validate.yml
+  h_be7b56bb4932a4 1-35
+.gitignore
+  h_be7b56bb4932a4 1-8
+CHANGELOG.md
+  h_be7b56bb4932a4 1-34
+LICENSE
+  h_be7b56bb4932a4 1-21
+README.md
+  h_be7b56bb4932a4 1-151
+docs/how-it-works.md
+  h_be7b56bb4932a4 1-119
+docs/maintenance.md
+  h_be7b56bb4932a4 1-75
+docs/verification.md
+  h_be7b56bb4932a4 1-86
+extensions/no-ads.js
+  h_be7b56bb4932a4 1-557
+tools/no-ads-check.sh
+  h_be7b56bb4932a4 1-57
+tools/no-ads-monitor.py
+  h_be7b56bb4932a4 1-130
+tools/no-ads-verify.py
+  h_be7b56bb4932a4 1-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7b123651de726e1bad18366c9fe3ca5c1c57edb",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
