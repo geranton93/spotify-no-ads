@@ -73,21 +73,29 @@ jobs:
           $shimDir | Out-File -Append -Encoding ascii $env:GITHUB_PATH
           "shimmed: $shimDir\spicetify.cmd"
 
-      - name: Make sure the client's app files exist (first launch if needed)
+      - name: Launch the client once so it writes its prefs (Spicetify needs them)
         shell: pwsh
         run: |
-          $apps = Join-Path $env:APPDATA 'Spotify\Apps'
-          if (-not (Test-Path (Join-Path $apps 'xpui.spa'))) {
-            "the app payload is missing - launching Spotify once so it unpacks its files"
+          # Spicetify's own error message: "ensure you have Spotify installed and have ran it for at
+          # least 30 seconds" - it locates the install through the client's prefs file, so a client
+          # that has never started makes patching impossible.
+          $prefs = Join-Path $env:APPDATA 'Spotify\prefs'
+          $apps  = Join-Path $env:APPDATA 'Spotify\Apps'
+          if (-not (Test-Path $prefs) -or -not (Test-Path (Join-Path $apps 'xpui.spa'))) {
+            "launching Spotify once so it writes its prefs"
             Start-Process (Join-Path $env:APPDATA 'Spotify\Spotify.exe')
-            for ($i = 0; $i -lt 12; $i++) {
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($sw.Elapsed.TotalSeconds -lt 90) {
               Start-Sleep -Seconds 5
-              if (Test-Path (Join-Path $apps 'xpui.spa')) { break }
+              $ready = (Test-Path $prefs) -and (Test-Path (Join-Path $apps 'xpui.spa'))
+              if ($ready -and $sw.Elapsed.TotalSeconds -ge 35) { break }   # give it the documented 30s+
             }
             Get-Process Spotify -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
             Start-Sleep -Seconds 3
           }
-          if (-not (Test-Path (Join-Path $apps 'xpui.spa'))) { throw "the client still has no Apps\xpui.spa after a first launch" }
+          if (-not (Test-Path $prefs)) { throw "Spotify never wrote its prefs file - Spicetify cannot detect the install" }
+          if (-not (Test-Path (Join-Path $apps 'xpui.spa'))) { throw "the client has no Apps\xpui.spa" }
+          "prefs: $prefs"
           Get-ChildItem $apps | Select-Object Name, Length | Format-Table | Out-String | Write-Host
 
       - name: First patch (backup + apply) with the stock config
