@@ -1,0 +1,16 @@
+tests/install-tests.ps1
+  h_be7b56bb4932a4 110-115,135-138,147,149,155,163,172
+tests/install-tests.sh
+  h_be7b56bb4932a4 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3bbc4002f2e643159456bc866a83dae80076936",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
