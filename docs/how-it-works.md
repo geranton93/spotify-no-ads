@@ -143,5 +143,11 @@ Hiding an ad surface is not enough if the surface leaves a hole. Two things the 
   (`52px / 12px`, zoom-aware). This is a Spicetify css-map collision, not a Spotify bug: in the
   unpatched bundle the two rules belong to two different class names.
 
+- **Spicetify's custom nav links (Marketplace).** They are injected into the history cluster, where
+  Spotify's own neighbours (back/forward) are plain icons, but the Marketplace app renders its entry
+  with Encore's filled chip style (48x48, `rgb(36,36,36)`). The extension drops the resting fill
+  (`[class*="custom-navlinks"] button:not(:hover)`) so the cluster is visually uniform, and leaves
+  `:hover` intact so the button still responds. Only cosmetic: no state, routing or hit area changes.
+
 Note that this element is a *placeholder*: Spotify only renders it while its action buttons (bell,
 friends) are absent, so in a fully loaded top bar it is not in the DOM at all.

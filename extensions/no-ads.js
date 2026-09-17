@@ -43,7 +43,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.2.2';
+  const VERSION = '1.2.3';
 
   const CFG = {
     killAdServerEndpoint: true,     // A: redirect every ad slot's ad-server endpoint
@@ -459,6 +459,14 @@
       // lights. Restore the macOS variant (measured: chevrons move from x=81 to x=105).
       '.main-globalNav-historyButtonsSpacer { width: calc(52px / (var(--zoom-level,100) / 100)) !important;'
       + ' height: calc(12px / (var(--zoom-level,100) / 100)) !important; }',
+
+      // Marketplace nav chip. Spicetify renders custom nav links inside the history cluster, where
+      // every neighbour is a plain icon, but the Marketplace app draws its entry as a filled chip
+      // (48x48, background rgb(36,36,36)) - so it reads as a stray element between the chevrons and
+      // the empty middle of the bar. Keep the hit area and leave :hover alone so the button still
+      // gives feedback; only the resting fill goes away. Selector is class-based, not label-based,
+      // because the label is localised.
+      '[class*="custom-navlinks"] button:not(:hover) { background: transparent !important; }',
     ].join('\n');
     document.head.appendChild(style);
     log('ad container CSS installed');

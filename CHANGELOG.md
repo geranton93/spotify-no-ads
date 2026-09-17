@@ -3,6 +3,24 @@
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/),
 versioning: [SemVer](https://semver.org/).
 
+## [1.2.3] - 2026-09-17
+
+### Changed
+
+- **Marketplace nav entry no longer looks like a stray chip.** Spicetify renders custom nav links
+  inside the top bar's history cluster, where every neighbour is a plain icon, while the Marketplace
+  app draws its entry as a filled 48x48 chip (`background: rgb(36,36,36)`). The resting fill is
+  removed so the cluster reads as one group; the hit area and the `:hover` feedback are untouched
+  (verified with a dispatched mouse move: resting `rgba(0,0,0,0)`, hover `rgb(42,42,42)`). The
+  selector is class-based (`[class*="custom-navlinks"] button`), not label-based, because the label is
+  localised.
+
+### Notes
+
+- Grouping the two nav chips together instead (moving the Marketplace entry next to Home) was also
+  tested: clicks keep working and the search container stays centred, but it keeps the filled chip the
+  user flagged, so the quieter fix was chosen.
+
 ## [1.2.2] - 2026-09-17
 
 ### Fixed

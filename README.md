@@ -42,7 +42,7 @@ watchdog because the client re-enables its ad managers after player/product-stat
 | D | **Interception** | Wraps `createSlot` (new slots immediately get the dead endpoint) and `subscribeToInStreamAds` (any ad message → clear the slot, ask the engine to skip). |
 | E | **Last resort** | If an ad ever becomes the current playback item, end it and — only while it is current — force output volume to 0 so nothing is audible. Restores from a persisted checkpoint, so a restart can never strand the player muted. |
 
-Plus UI hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and repairs for two Spicetify class-mapping artefacts in the top bar - the action-area separator that renders as an 8x25 white block instead of a 1px hairline, and the history spacer that is 24px too narrow on macOS so the back/forward buttons crowd the traffic lights (see `docs/how-it-works.md#ui-hygiene`).
+Plus top-bar hygiene: the upgrade CTA / in-app messaging flags, CSS for ad containers, and three chrome repairs - the action-area separator that rendered as an 8x25 white block instead of a 1px hairline, the history spacer that was 24px too narrow on macOS so the back/forward buttons crowded the traffic lights, and the Marketplace nav entry whose filled chip stood out among the plain icons of the cluster it lives in (see `docs/how-it-works.md#ui-hygiene`).
 - **Nothing leaves your machine.** No account changes, no server-side requests beyond what the
   client already makes. The only network effect is that ad requests now fail.
 
