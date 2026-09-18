@@ -1,0 +1,24 @@
+INSTALL.md
+  h_be7b56bb4932a4 1,3-4,6-14,16-17,19,21-24
+README.md
+  h_be7b56bb4932a4 13,15-85,91-92,97-212,276-277,281-283,331,336,354,361-364
+install.ps1
+  h_be7b56bb4932a4 112
+install.sh
+  h_be7b56bb4932a4 131
+tests/install-tests.ps1
+  h_be7b56bb4932a4 165
+tests/install-tests.sh
+  h_be7b56bb4932a4 136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d95738bd41dfab46289714d22fc5805ddd595d81",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
