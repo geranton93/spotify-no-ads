@@ -128,7 +128,7 @@ elif ! backup_exists && spicetify backup apply >/tmp/no-ads-apply.log 2>&1; then
 else
   say "     something went wrong. The last lines of the log:"
   tail -5 /tmp/no-ads-apply.log | sed 's/^/       /'
-  die "Run 'spicetify backup apply' by hand to see the full error, or read INSTALL.md."
+  die "Run 'spicetify backup apply' by hand to see the full error, or see the guide: https://github.com/geranton93/spotify-no-ads#troubleshooting"
 fi
 start_spotify
 

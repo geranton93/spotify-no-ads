@@ -10,25 +10,206 @@ no ads fetched → no ads scheduled → no ads played → nothing to mute
 
 ---
 
-## Install (no coding needed)
+# Install (no coding needed)
 
-**[Step-by-step guide for everyone → INSTALL.md](INSTALL.md)** — two copy-paste lines, no programming
-required, undoable at any time.
+**You need:** the Spotify desktop app (the one you already use) and about five minutes.
+**You do not need:** any programming knowledge, a paid Spotify plan, or any other program.
+
+Everything here is copy-and-paste. You paste **two lines** into a text window and press Enter. After
+the second one, Spotify closes and reopens by itself once — that is expected. The only thing that
+changes on your computer is Spotify, and an untouched backup of it is kept, so you can undo all of it
+at any time.
+
+## What is what (30 seconds)
+
+| Thing | What it is |
+|---|---|
+| **Spotify desktop** | the app you already have |
+| **Spicetify** | a free, widely used tool ([spicetify.app](https://spicetify.app)) that lets the Spotify desktop app load add-ons. It is what makes any customization possible. |
+| **spotify-no-ads** | this add-on — one text file. It stops ads from being fetched and played, and it stops Spotify from silently lowering the sound quality. |
+
+## Step 1 — install Spicetify
+
+### macOS
+
+1. Press **⌘ + Space**, type `Terminal`, press **Enter**. A small text window opens.
+2. Copy this whole line, paste it into that window (⌘V) and press **Enter**:
 
 ```bash
-# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/spicetify/cli/main/install.sh | sh
+```
+
+3. Wait until the text stops scrolling (a few seconds). Then check that it worked — paste this and
+   press Enter:
+
+```bash
+spicetify --version
+```
+
+If a version number appears (for example `2.45.1`), Step 1 is done. If instead you see
+`command not found: spicetify`, close the window, open a new Terminal window (⌘Space → `Terminal`)
+and try this last command again.
+
+### Windows
+
+1. Press **Win**, type `PowerShell`, and press **Enter**.
+2. Copy this whole line, paste it (Ctrl+V) and press **Enter**:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex
+```
+
+3. Close PowerShell, open it again the same way (so the new command is picked up), and check:
+
+```powershell
+spicetify --version
+```
+
+A version number means Step 1 is done.
+
+> **Important for Windows:** Spicetify does **not** work with the Spotify version from the Microsoft
+> Store. In Spotify open `Settings → About` and look at the version. If it came from the Microsoft
+> Store, remove it and install the normal one from
+> [spotify.com](https://www.spotify.com/download/windows/), then repeat Step 1.
+
+### Linux
+
+Same two commands as macOS (open a Terminal, paste, press Enter): the `curl … | sh` line above, then
+`spicetify --version`.
+
+## Step 2 — install the ad-free add-on
+
+This one line downloads the add-on, switches it on **without touching your other Spicetify
+extensions**, and patches Spotify once. Spotify will close and reopen by itself — that is expected.
+
+**macOS and Linux:**
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/install.sh | sh
 ```
 
+**Windows:**
+
 ```powershell
-# Windows (PowerShell)
 iwr -useb https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/install.ps1 | iex
 ```
 
-The installer checks that Spicetify is present, downloads this extension into your Spicetify
-`Extensions` folder, enables it without touching your other extensions, and applies the patch. The
-manual three-command path (copy the file, `spicetify config extensions no-ads.js`, `spicetify apply`)
-is under [Install](#install) below, and the guide explains both.
+You should see something like this at the end:
+
+```
+Finished - Spotify now starts without ads.
+```
+
+<details>
+<summary><b>If the script does not work, do these three commands by hand</b></summary>
+
+**macOS / Linux** — these three commands do exactly what the script does:
+
+```bash
+curl -fsSL -o "$HOME/.config/spicetify/Extensions/no-ads.js" \
+  https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/extensions/no-ads.js
+spicetify config extensions no-ads.js
+spicetify apply
+```
+
+If the last command complains about a missing backup, run `spicetify backup apply` instead.
+
+**Windows** (PowerShell):
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/extensions/no-ads.js `
+  -OutFile "$env:APPDATA\spicetify\Extensions\no-ads.js"
+spicetify config extensions no-ads.js
+spicetify apply
+```
+
+**Prefer clicking?** You can also save
+[`extensions/no-ads.js`](https://raw.githubusercontent.com/geranton93/spotify-no-ads/main/extensions/no-ads.js)
+into the `Extensions` folder inside your Spicetify folder (on macOS/Linux:
+`~/.config/spicetify/Extensions`, on Windows: `%APPDATA%\spicetify\Extensions`), then run the last two
+commands by hand.
+
+</details>
+
+## Step 3 — check that it works
+
+**The simple check.** Play music for a few minutes, then let an album run to its end. Where Spotify
+used to cut in with an ad, it now keeps playing.
+
+**The exact check (optional, 10 seconds).** Spotify has a hidden developer console:
+
+1. Click once inside the Spotify window.
+2. Press **Ctrl + Shift + I** (**⌘ + Option + I** on macOS). A panel appears.
+3. Click the `Console` tab, type this and press **Enter**:
+
+```js
+NoAds.verify()
+```
+
+You want to see `"version": "1.3.0"` and, in the counters, `"guards": 0`, `"mutes": 0`,
+`"adMessages": 0`. That means no ad has reached the player.
+
+Press **Esc** (or click the ✕) to close the panel.
+
+## After a Spotify update: run Step 2 again
+
+Spotify replaces its own files with every update, and that removes the patch. When you notice ads
+again, the add-on is not broken — the patch is simply gone:
+
+1. Quit Spotify completely.
+2. Run the Step 2 line again.
+3. Spotify comes back ad-free.
+
+That is the whole maintenance. Nothing else to remember.
+
+## Troubleshooting
+
+| What you see | What to do |
+|---|---|
+| Ads came back | Run the Step 2 line again (normal after a Spotify update) |
+| `command not found: spicetify` | Close the window, open a new Terminal/PowerShell, try again. Still missing → repeat Step 1 |
+| `spicetify` says it cannot find Spotify, or Spotify does not start | Run `spicetify restore` (this puts the original Spotify back), then run the Step 2 line again |
+| Nothing works, Spotify looks broken | `spicetify restore` returns Spotify to its untouched state; you can stop there or ask on the project's Issues page |
+| Windows: Spotify came from the Microsoft Store | Not supported by Spicetify — install Spotify from [spotify.com](https://www.spotify.com/download/windows/) instead |
+| You want to be sure the patch is active | Run `spicetify config extensions` — `no-ads.js` should be in the list |
+
+## How to remove everything
+
+Two commands, and Spotify is exactly as it was before:
+
+```bash
+spicetify restore
+rm "$HOME/.config/spicetify/Extensions/no-ads.js"     # macOS with an older layout:
+                                                      #   "$HOME/Library/Application Support/spicetify/Extensions/no-ads.js"
+```
+
+On Windows:
+
+```powershell
+spicetify restore
+Remove-Item "$env:APPDATA\spicetify\Extensions\no-ads.js"
+```
+
+To keep Spicetify and drop only this add-on:
+
+```bash
+spicetify config extensions no-ads.js-
+spicetify apply
+```
+
+## Honest notes before you install
+
+- **No account is touched.** Nothing is uploaded anywhere; no password, no payment, no subscription
+  change. The add-on works on the Spotify desktop app you already have.
+- **It does not give you paid features.** Ads are removed and silent quality downgrades are stopped —
+  that is all. It does not raise the sound quality above what your plan allows (a free plan streams
+  160 kbps; Premium streams 320 kbps), and it does not download music.
+- **It may conflict with Spotify's Terms of Service.** It changes your own app on your own computer;
+  you do it at your own risk.
+
+---
+
+# Technical documentation
 
 ## Why this exists
 
@@ -92,12 +273,14 @@ the difference anyway - wired output is what reveals it.
 
 ## Requirements
 
-- Spotify desktop **1.3.x** with **Spicetify 2.4x** (verified on Spotify 1.3.0.277 + Spicetify 2.45.0,
-  macOS).
+- Spotify desktop **1.3.x** with **Spicetify 2.4x** (verified on Spotify 1.3.0.277 with Spicetify
+  2.45.x on macOS, and on a Windows runner with a real client + Spicetify install).
 - The extension is plain JavaScript and is not platform-specific.
 - The tooling in `tools/` is macOS-oriented (AppleScript + loopback devtools port).
 
-## Install
+## Manual install (advanced)
+
+The one-line installers above do exactly this:
 
 ```bash
 # 1. copy the extension into your Spicetify Extensions directory
@@ -145,12 +328,12 @@ See `docs/verification.md` for what each signal proves and what it does not.
 
 | Document | Contents |
 |---|---|
-| [`INSTALL.md`](INSTALL.md) | **Install guide for non-programmers** — the one-line installer, the manual path, troubleshooting, uninstall |
+| [`INSTALL.md`](INSTALL.md) | Pointer to the install guide above (kept so links and the installers' messages keep working) |
 | `install.sh` / `install.ps1` | The one-line installers themselves (macOS/Linux and Windows) |
 | `tests/install-tests.sh` / `tests/install-tests.ps1` | Behaviour tests for both installers (stubbed `spicetify`, no real client touched). CI runs them on Linux **and on a real Windows runner** |
 | `.github/workflows/windows-e2e.yml` | On-demand Windows end-to-end (real Spotify + real Spicetify + the published installer, then verifies the patched bundle): `gh workflow run windows-e2e.yml` |
 | `docs/how-it-works.md` | The client architecture it targets, exact API surface, the traps (unit conversions, settings that look writable but are not), and how each layer was verified |
-| `docs/verification.md` | Independent evidence: the ad engine's impression counter as the falsifier, the acoustic method and its calibration limits |
+| `docs/verification.md` | Independent evidence: the ad engine's impression counter as the falsifier, the acoustic method and its calibration limits, and how the installers are verified |
 | `docs/maintenance.md` | What to re-check after a Spotify update, how to reinstall, how to roll back |
 
 ## Maintenance after a Spotify update
@@ -168,12 +351,16 @@ output of `NoAds.verify()`.
 
 ## Status and honest calibration
 
-Verified on Spotify 1.3.0.277 / Spicetify 2.45.0 (macOS):
+Verified on Spotify 1.3.0.277 / Spicetify 2.45.x (macOS):
 
 - ad-server endpoint redirected for all 15 slots; in-stream break interval persisted (read back);
 - native engine state `ad_enabled=false` (read back);
 - all ad managers read back as disabled; `enableBlocks` counts the client's attempts to re-arm them;
 - zero ad impressions and zero ads reaching playback across instrumented listening sessions.
+
+The installers themselves are covered by behaviour tests on Linux and on a real Windows runner, plus
+an on-demand Windows end-to-end that installs a real Spotify client and verifies the extension
+reached the patched bundle — see `docs/verification.md`.
 
 Not proven: that it will block a *future* ad format. That is why layers D/E and the monitoring tool
 exist — if Spotify introduces a new delivery path, it degrades visibly instead of silently.

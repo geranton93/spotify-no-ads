@@ -162,7 +162,7 @@ try {
     $r = Run-Installer
     Check 'apply fails, backup present: no backup apply'  (-not (& $hasCall 'backup apply'))
     Check 'apply fails, backup present: exits non-zero'   ($r.Code -ne 0)
-    Check 'apply fails, backup present: points at INSTALL.md' ($r.Output -match 'INSTALL\.md')
+    Check 'apply fails, backup present: points at the guide' ($r.Output -match '#troubleshooting')
 
     # 6. Dry run changes nothing -------------------------------------------
     Reset-State

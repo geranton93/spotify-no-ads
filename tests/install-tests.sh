@@ -133,7 +133,7 @@ mkdir -p "$CFGDIR/Backup"
 OUT="$(run_installer 2>&1)"; CODE=$?
 check "apply fails, backup present: no backup apply" "$(grep -q '^backup apply$' "$SANDBOX/calls.log" && echo 1 || echo 0)"
 check "apply fails, backup present: exits non-zero"  "$([ "$CODE" -ne 0 ] && echo 0 || echo 1)"
-check "apply fails, backup present: points at INSTALL.md" "$(printf '%s' "$OUT" | grep -q 'INSTALL.md' && echo 0 || echo 1)"
+check "apply fails, backup present: points at the guide" "$(printf '%s' "$OUT" | grep -q '#troubleshooting' && echo 0 || echo 1)"
 
 # 6. Dry run changes nothing ------------------------------------------------
 reset_state

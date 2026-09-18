@@ -109,7 +109,7 @@ if ((-not $applied) -and (-not $backupExists)) {
 if (-not $applied) {
     Write-Host '     something went wrong. The last lines of the log:'
     Get-Content $log -Tail 5 | ForEach-Object { Write-Host "       $_" }
-    Write-Host 'Run "spicetify backup apply" by hand to see the full error, or read INSTALL.md.'
+    Write-Host 'Run "spicetify backup apply" by hand to see the full error, or see the guide: https://github.com/geranton93/spotify-no-ads#troubleshooting'
     exit 1
 }
 Write-Host $note
