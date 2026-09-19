@@ -253,7 +253,7 @@ about it, and what it will never do:
 | | |
 |---|---|
 | **No silent downgrades** | The client ships an "adjust quality automatically" switch (native key `audio.allow_downgrade`). It is switched off at every launch, so a momentary bad-network heuristic can never drop the stream below what the account is allowed. |
-| **An honest report** | `NoAds.quality()` prints what the setting asks for, what the account allows and what is actually streaming (codec, bitrate, advised bitrate) - visible without a debugger, in one command. |
+| **An honest report** | `NoAds.quality()` prints what the setting asks for, the account's own ceiling (`audio-quality`, `high-bitrate`) and what is actually streaming (codec, target bitrate, advised bitrate) - in one command. The same report is a panel on `Ctrl/Cmd+Shift+Q` (or `NoAds.qualityPanel()`), with the current source (local file / cached copy / network stream) and a read-back switch for the auto-downgrade setting. |
 | **No tier spoofing** | The ceiling is served by Spotify, not decided by the client. A free account streams 160 kbps Ogg, and the extension says so out loud. Faking a Premium product state would be entitlement circumvention, would not survive server-side enforcement, and is not what this project is. |
 
 Measured on a free account: setting `Very high` (3), account cap `0`, network advice 1,400,000 bps,
@@ -308,6 +308,8 @@ fix. Three ways to check, cheapest first:
 ```js
 // 1. in the client: DevTools console (Ctrl/Cmd+Shift+I) or via CDP
 NoAds.verify()          // extension state, counters, which layers applied
+NoAds.quality()         // setting, the account's ceiling, what is actually streaming
+NoAds.qualityPanel()    // the same on screen - also Ctrl/Cmd+Shift+Q
 ```
 
 ```bash
@@ -357,6 +359,11 @@ Verified on Spotify 1.3.0.277 / Spicetify 2.45.x (macOS):
 - native engine state `ad_enabled=false` (read back);
 - all ad managers read back as disabled; `enableBlocks` counts the client's attempts to re-arm them;
 - zero ad impressions and zero ads reaching playback across instrumented listening sessions.
+
+The quality panel was verified live (Spotify 1.3.0.277): a real `Ctrl+Shift+Q` opens and closes it,
+it reports `Spotify Free (audio-quality=0, high-bitrate=0)` against `160 kbps vorbis`, and its toggle
+writes through the client's API and reads the value back (`false -> true -> false`) with the
+extension's error counter at zero.
 
 The installers themselves are covered by behaviour tests on Linux and on a real Windows runner, plus
 an on-demand Windows end-to-end that installs a real Spotify client and verifies the extension

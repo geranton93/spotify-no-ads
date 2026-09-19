@@ -125,7 +125,8 @@ Ad blocking and quality are separate subsystems, and only the second one is enti
 | Setting | Native identifier | Notes |
 |---|---|---|
 | Streaming quality | `audio.play_bitrate_non_metered_enumeration` | 3 = Very high (the client's own request) |
-| Account cap | `audio-quality` (product state) | 0 on a free account; enforced by Spotify, not by the client |
+| Account cap | `audio-quality` (product state) | 0 on a free account; served with the session, so Spotify enforces it, not the client |
+| High bitrate gate | `high-bitrate` (product state) | 0 on a free account; the second pair behind the same ceiling |
 | Download quality | `audio.sync_bitrate_enumeration` | downloads are Premium-only |
 | Loudness normalisation | `audio.normalize_v2` | user setting |
 | Volume level | `audio.loudness.environment` | 1 = Normal |
@@ -148,6 +149,33 @@ state, which (a) is what this project publicly promises not to do, (b) does not 
 enforcement - the file is issued per entitlement, and (c) was already measured to be inert for the
 sibling case: `putOverridesValues` on the product state did not change what the client reported.
 So the honest deliverable is: keep the client from asking for *less*, and make the truth visible.
+
+The measurement, for anyone who wants to re-check it: in 1.3.0.277 the product state lives in
+`Spicetify.Platform.UserAPI._product_state_service` (also `ProductStateAPI.productStateApi`; there is
+no `UserAPI._product_state`) and exposes `getValues` / `subValues` / `putValues` /
+`putOverridesValues` / `delOverridesValues`. Calling
+`putOverridesValues({pairs:{ads:'0',catalogue:'premium',product:'premium',type:'premium'}})` resolves
+without an error, and the read-back is identical at +1.5 s and +8 s: `ads:"1"`, `catalogue:"free"`,
+`type:"free"`, `audio-quality:"0"`, `high-bitrate:"0"`, with the stream still at
+`fileBitrate`/`targetBitrate` 160000. It does not even change what the client believes - there is no
+client-side "Premium" state to switch on.
+
+### The quality panel
+
+`NoAds.qualityPanel()`, or `Ctrl/Cmd+Shift+Q` while the client is focused, shows what
+`NoAds.quality()` prints - the setting, the account's ceiling pairs, the delivered stream, the
+connection's advice - plus the current **source** (`local file`, `cached copy of the stream`,
+`network stream`) and a read-back switch for `audio.allow_downgrade`. It is read-only otherwise:
+every value is read from the client's own APIs at the moment the panel opens, and the one switch it
+carries is a normal user setting.
+
+Two entry points were tried and dropped as unusable in this combination (Spotify 1.3.0.277 +
+Spicetify 2.45.1), both measured rather than assumed: `Spicetify.Menu.Item.register()` funnels into
+`ContextMenuV2.registerItem` with an element the constructor builds through a `jsx` helper this build
+does not expose (`Cannot read properties of undefined (reading 'jsx')`, so no menu entry appears),
+and `Spicetify.Keyboard.registerShortcut()` accepts a binding that no real keystroke reaches. The
+shortcut in the shipped extension is therefore a plain DOM listener, verified by sending a real
+`Ctrl+Shift+Q` through the devtools Input domain.
 
 ## UI hygiene
 

@@ -37,7 +37,11 @@
  * so the stream is never silently downgraded below what the account is allowed, and it publishes
  * what is actually streaming - NoAds.quality(), and NoAds.verify().quality. It never spoofs the
  * product tier: the ceiling is served by Spotify, not decided by the client, so a free account stays
- * at 160 kbps Ogg and the extension says so out loud instead of pretending otherwise.
+ * at 160 kbps Ogg and the extension says so out loud instead of pretending otherwise. The same
+ * numbers are also a panel - NoAds.qualityPanel(), or Ctrl/Cmd+Shift+Q -
+ * showing the setting next to the account's own ceiling pairs (audio-quality / high-bitrate, read
+ * from the service the client reads) and what is streaming, with a read-back toggle for the
+ * auto-downgrade switch.
  *
  * Interval units (measured on 1.3.0.277): the Settings update* methods take MICROSECONDS while
  * getSlotSettings returns MILLISECONDS — writing 1800000 reads back as 1800000000 in the same
@@ -50,7 +54,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '1.3.0';
+  const VERSION = '1.4.0';
 
   const CFG = {
     killAdServerEndpoint: true,     // A: redirect every ad slot's ad-server endpoint
@@ -79,6 +83,8 @@
     disableQualityDowngrade: true,
     // Read-only: publish the delivered stream (codec, bitrate, advised bitrate) via NoAds.quality().
     reportQuality: true,
+    // The same report as a panel: NoAds.qualityPanel(), and Ctrl/Cmd+Shift+Q.
+    qualityPanel: true,
   };
 
   // Authoritative slot ids from the client's own enum (Slots proto); the engine's live list from
@@ -528,6 +534,7 @@
     installInterception();
     applyUiFlags();
     applyCss();
+    registerQualityEntry();
     guard();
   }
 
@@ -582,8 +589,11 @@
       normalizeVolume: await readSetting('normalizeVolume'),
       volumeLevel: await readSetting('volumeLevel'),
       downloadQualitySetting: await readSetting('downloadAudioQuality'),
-      codec: null, bitrate: null, advisedBitrate: null, strategy: null,
+      codec: null, bitrate: null, targetBitrate: null, advisedBitrate: null, strategy: null,
+      source: null, account: null,
     };
+    out.account = await readAccountState();
+    out.source = describeSource(null);
     const PB = findPlaybackClass();
     const transport = getTransport();
     if (PB && transport) {
@@ -592,17 +602,23 @@
         if (info) {
           out.codec = info.codecName || null;
           out.bitrate = info.fileBitrate == null ? null : String(info.fileBitrate);
+          out.targetBitrate = info.targetBitrate == null ? null : String(info.targetBitrate);
           out.advisedBitrate = info.advisedBitrate == null ? null : String(info.advisedBitrate);
           out.strategy = info.strategy || null;
+          out.source = describeSource(out.strategy);
         }
       } catch (e) { out.streamError = (e && e.message) || String(e); }
     }
     if (out.accountCap !== null && out.bitrate !== null) {
       const kbps = Math.round(Number(out.bitrate) / 1000);
+      const tier = (out.account && out.account.name) ? out.account.name : 'unknown tier';
+      const caps = out.account && out.account.audioQuality !== undefined
+        ? ' (audio-quality=' + out.account.audioQuality + ', high-bitrate=' + out.account.highBitrate + ')'
+        : '';
       out.note = (Number(out.accountCap) === 0)
-        ? 'account tier caps the stream (' + kbps + ' kbps ' + (out.codec || '') + '); the client '
-          + 'already asks for its maximum - the ceiling comes from the account, not from the client, '
-          + 'so no web-layer change can raise it'
+        ? tier + caps + ' caps the stream (' + kbps + ' kbps ' + (out.codec || '') + '): those pairs '
+          + 'are served by Spotify with the session and the client already asks for its maximum, so '
+          + 'no web-layer change can raise it'
         : 'account allows the configured quality (' + kbps + ' kbps ' + (out.codec || '') + ')';
     }
     return out;
@@ -635,6 +651,189 @@
       state.lastError = 'quality policy: ' + (e && e.message);
       log('error', state.lastError);
     }
+  }
+
+  /* ---------- I. the account's own numbers ---------- */
+
+  // Section H reports what the *client* is allowed. These pairs report what the *account* is
+  // allowed, read from the service the client itself reads. "audio-quality" and "high-bitrate"
+  // arrive with the session, which is the structural reason the cap cannot be raised from the web
+  // layer: the call that tries (putOverridesValues) is accepted and changes nothing - measured, the
+  // read-back and the stream were identical at +1.5s and +8s.
+  const productStateApi = () =>
+    S()?.Platform?.UserAPI?._product_state_service ||
+    S()?.Platform?.ProductStateAPI?.productStateApi ||
+    S()?.Platform?.UserAPI?._product_state || null;
+
+  async function readAccountState() {
+    const api = productStateApi();
+    if (!api || typeof api.getValues !== 'function') return null;
+    try {
+      const res = await api.getValues({
+        keys: ['ads', 'catalogue', 'type', 'name', 'audio-quality', 'high-bitrate', 'financial-product'],
+      });
+      const pairs = (res && res.pairs) || res || {};
+      return {
+        name: pairs.name ?? null,
+        catalogue: pairs.catalogue ?? null,
+        type: pairs.type ?? null,
+        ads: pairs.ads ?? null,
+        audioQuality: pairs['audio-quality'] ?? null,
+        highBitrate: pairs['high-bitrate'] ?? null,
+        financialProduct: pairs['financial-product'] ?? null,
+        tierCapsStream: String(pairs['audio-quality'] ?? '') === '0',
+      };
+    } catch (e) {
+      return { error: (e && e.message) || String(e) };
+    }
+  }
+
+  // Where the sound comes from right now: local files and cached copies are served without the
+  // network and without the tier's stream cap, so this is the line that explains most "why does it
+  // sound like this" questions.
+  function describeSource(strategy) {
+    const uri = String((S()?.Player?.data?.item && S().Player.data.item.uri) || '');
+    if (uri.startsWith('spotify:local:')) return 'local file (own bitrate, plays offline)';
+    if (!uri) return 'nothing playing';
+    if (strategy === 'cached file') return 'cached copy of the stream';
+    return 'network stream';
+  }
+
+  /* ---------- J. quality panel ---------- */
+
+  const PANEL_ID = 'no-ads-quality-panel';
+  const PANEL_STYLE_ID = 'no-ads-quality-style';
+  let panelKeyHandler = null;
+
+  function ensurePanelStyle() {
+    if (document.getElementById(PANEL_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = PANEL_STYLE_ID;
+    style.textContent = [
+      '#' + PANEL_ID + ' { position: fixed; top: 64px; right: 16px; width: 420px;',
+      '  max-width: calc(100vw - 32px); z-index: 9999; background: var(--spice-card, #282828);',
+      '  color: var(--spice-text, #ffffff); border: 1px solid rgba(255,255,255,.12); border-radius: 8px;',
+      '  padding: 14px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 13px; line-height: 1.45;',
+      '  user-select: text; }',
+      '#' + PANEL_ID + ' h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; }',
+      '#' + PANEL_ID + ' .na-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }',
+      '#' + PANEL_ID + ' .na-row span:last-child { text-align: right; }',
+      '#' + PANEL_ID + ' .na-dim { opacity: .7; }',
+      '#' + PANEL_ID + ' .na-note, #' + PANEL_ID + ' .na-levers { margin-top: 10px; padding-top: 10px;',
+      '  border-top: 1px solid rgba(255,255,255,.12); opacity: .85; }',
+      '#' + PANEL_ID + ' .na-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }',
+      '#' + PANEL_ID + ' button { background: rgba(255,255,255,.1); color: inherit; border: 0;',
+      '  border-radius: 500px; padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }',
+      '#' + PANEL_ID + ' button:hover { background: rgba(255,255,255,.2); }',
+      '#' + PANEL_ID + ' label { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }',
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
+  function closeQualityPanel() {
+    const existing = document.getElementById(PANEL_ID);
+    if (existing) existing.remove();
+    if (panelKeyHandler) {
+      document.removeEventListener('keydown', panelKeyHandler, true);
+      panelKeyHandler = null;
+    }
+  }
+
+  const row = (label, value) =>
+    '<div class="na-row"><span class="na-dim">' + label + '</span><span>' + value + '</span></div>';
+
+  const kbps = (bits) => (bits === null || bits === undefined)
+    ? 'n/a' : Math.round(Number(bits) / 1000) + ' kbps';
+
+  // Read-only except for the one user-facing switch, which is applied and read back through the
+  // client's own API before the panel says anything about it.
+  async function openQualityPanel() {
+    ensurePanelStyle();
+    closeQualityPanel();
+    const quality = await readQuality();
+    const account = quality.account || {};
+    const caps = (account.audioQuality === undefined)
+      ? '' : '  (audio-quality=' + account.audioQuality + ', high-bitrate=' + account.highBitrate + ')';
+    const panel = document.createElement('div');
+    panel.id = PANEL_ID;
+    panel.innerHTML = [
+      '<h3>no-ads ' + state.version + ' - quality</h3>',
+      row('Account', (account.name || 'unknown') + (account.catalogue ? ' (' + account.catalogue + ')' : '')),
+      row('Setting for streaming', String(quality.streamingQualitySetting ?? 'n/a')),
+      row('Account allows', String(quality.accountCap ?? 'n/a') + caps),
+      row('Streaming now', kbps(quality.bitrate) + ' ' + (quality.codec || '') + '  (target ' + kbps(quality.targetBitrate) + ')'),
+      row('Source', quality.source || 'n/a'),
+      row('Connection could carry', kbps(quality.advisedBitrate)),
+      row('Never downgrade automatically', quality.autoDowngrade === false ? 'on' : 'off'),
+      '<div class="na-note">' + (quality.note || 'no stream information yet') + '</div>',
+      '<div class="na-levers">What actually raises quality: your own files (played at their native '
+        + 'bitrate, and they work offline), a wired output instead of Bluetooth, or Premium for the '
+        + 'catalogue at 320 kbps. The tier itself is served by Spotify and cannot be raised here.</div>',
+      '<label><input type="checkbox" id="no-ads-auto-downgrade"'
+        + (quality.autoDowngrade === false ? ' checked' : '') + '> stop the client lowering quality on its own</label>',
+      '<div class="na-actions"><button id="no-ads-copy">Copy report</button>'
+        + '<button id="no-ads-close">Close</button></div>',
+    ].join('');
+    document.body.appendChild(panel);
+
+    const toggle = panel.querySelector('#no-ads-auto-downgrade');
+    if (toggle) {
+      toggle.addEventListener('change', () => {
+        const q = qualitySettings();
+        const autoAdjust = !toggle.checked;   // checked = "do not lower quality" => autoAdjustQuality false
+        note(async () => {
+          if (q && q.autoAdjustQuality && typeof q.autoAdjustQuality.setValue === 'function') {
+            await q.autoAdjustQuality.setValue(autoAdjust);
+            const after = await q.autoAdjustQuality.getValue();
+            state.applied.qualityDowngradeDisabled = (after === false);
+            log('auto-downgrade toggled from the panel', 'read back: ' + String(after));
+            void refreshQuality();
+          }
+        }, 'panel toggle');
+      });
+    }
+    const closeButton = panel.querySelector('#no-ads-close');
+    if (closeButton) closeButton.addEventListener('click', closeQualityPanel);
+    const copyButton = panel.querySelector('#no-ads-copy');
+    if (copyButton) {
+      copyButton.addEventListener('click', () => note(
+        () => globalThis.navigator.clipboard.writeText(JSON.stringify(quality, null, 1)), 'copy report'));
+    }
+
+    panelKeyHandler = (event) => { if (event.key === 'Escape') closeQualityPanel(); };
+    document.addEventListener('keydown', panelKeyHandler, true);
+    log('quality panel opened');
+    return quality;
+  }
+
+  // Entry points beyond the console function. Both are optional surfaces of this build, so each is
+  // feature-detected: if a build drops Spicetify.Menu or Spicetify.Keyboard, the report still works
+  // through NoAds.qualityPanel().
+  // Ctrl/Cmd+Shift+Q is bound with our own DOM listener rather than Spicetify's optional surfaces,
+  // because both were measured unusable in this combination (Spotify 1.3.0.277 + Spicetify 2.45.1):
+  //   - Spicetify.Menu.Item.register() funnels into ContextMenuV2.registerItem with an element the
+  //     constructor builds through a `jsx` helper this build does not expose (typeof jsx is
+  //     undefined), so it throws "Cannot read properties of undefined (reading 'jsx')" and no menu
+  //     entry appears;
+  //   - Spicetify.Keyboard.registerShortcut() accepts the binding without error, but a real
+  //     Ctrl+Shift+Q dispatched through the devtools Input domain never reaches the callback.
+  // Our own listener depends on nothing but the DOM, so it is verifiable - and NoAds.qualityPanel()
+  // is always available from the console as a fallback.
+  let qualityKeyHandler = null;
+
+  function registerQualityEntry() {
+    if (!CFG.qualityPanel || qualityKeyHandler) return;
+    qualityKeyHandler = (event) => {
+      if (!event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey) return;
+      if (String(event.key).toLowerCase() !== 'q') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.getElementById(PANEL_ID)) closeQualityPanel();
+      else void openQualityPanel().catch(() => {});
+    };
+    window.addEventListener('keydown', qualityKeyHandler, true);
+    state.applied.qualityShortcut = 'Ctrl/Cmd+Shift+Q';
+    log('quality shortcut registered');
   }
 
   /* ---------- bootstrap ---------- */
@@ -670,6 +869,7 @@
     state.quality = function () {
       return readQuality().then((q) => JSON.stringify(q, null, 1));
     };
+    state.qualityPanel = function () { return openQualityPanel(); };
     state.reapply = function () {
       void note(() => applyNativeSettings(), 'manual native');
       void note(() => applyEngineState(), 'manual state');
@@ -678,6 +878,11 @@
     };
     state.dispose = function () {
       disposed = true;
+      closeQualityPanel();
+      if (qualityKeyHandler) {
+        window.removeEventListener('keydown', qualityKeyHandler, true);
+        qualityKeyHandler = null;
+      }
       for (const t of timers) clearInterval(t);
       for (const l of listeners) note(() => l(), 'remove listener');
       for (const target of Object.values(managerTargets())) {
@@ -695,6 +900,7 @@
     log('no-ads starting', S().version);
     void applyQualityPolicy().catch(() => {});
     void refreshQuality().catch(() => {});
+    registerQualityEntry();
     void note(() => applyNativeSettings(), 'initial native');
     void note(async () => { await applyEngineState(); state.observed.adEnabledEngine = (await readEngineState())?.ad_enabled; }, 'initial engine state');
     disableManagers();

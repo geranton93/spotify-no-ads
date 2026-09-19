@@ -3,6 +3,34 @@
 All notable changes to this project. Format: [Keep a Changelog](https://keepachangelog.com/),
 versioning: [SemVer](https://semver.org/).
 
+## [1.4.0] - 2026-09-19
+
+### Added
+
+- **Quality panel** - the numbers `NoAds.quality()` prints, on screen: `Ctrl/Cmd+Shift+Q`, or
+  `NoAds.qualityPanel()` from the DevTools console. It puts the *setting* next to the **account's own
+  ceiling pairs** (`audio-quality`, `high-bitrate`, read from the same product-state service the
+  client reads) and next to what is actually streaming (`codecName`, `fileBitrate`, `targetBitrate`,
+  `advisedBitrate`, `strategy`), plus where the sound comes from right now - `local file`, `cached
+  copy of the stream` or `network stream`.
+- The panel carries the one user-facing quality switch, wired to the client's own API and read back:
+  "stop the client lowering quality on its own" (native key `audio.allow_downgrade`).
+
+### Notes
+
+- Measured on a free account while writing this: `Spotify Free (audio-quality=0, high-bitrate=0)`
+  caps the stream at `160 kbps vorbis` while the connection advises `1400 kbps`. Those pairs arrive
+  with the session, which is the structural reason the cap cannot be raised from the web layer: the
+  call that tries (`putOverridesValues`) resolves without error and changes nothing - read-back and
+  stream identical at +1.5 s and +8 s. The panel states that instead of pretending.
+- Two Spicetify entry points were tried and dropped as unusable in this combination (Spotify
+  1.3.0.277 + Spicetify 2.45.1), each measured: `Spicetify.Menu.Item.register()` funnels into
+  `ContextMenuV2.registerItem` with an element the constructor builds through a `jsx` helper this
+  build does not expose (`Cannot read properties of undefined (reading 'jsx')`), and
+  `Spicetify.Keyboard.registerShortcut()` accepts a binding that no real keystroke reaches. The
+  shortcut is therefore a plain DOM listener, verified with a real `Ctrl+Shift+Q` sent through the
+  devtools Input domain.
+
 ## [1.3.0] - 2026-09-17
 
 ### Added
