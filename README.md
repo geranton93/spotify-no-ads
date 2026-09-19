@@ -256,6 +256,24 @@ about it, and what it will never do:
 | **An honest report** | `NoAds.quality()` prints what the setting asks for, the account's own ceiling (`audio-quality`, `high-bitrate`) and what is actually streaming (codec, target bitrate, advised bitrate) - in one command. The same report is a panel on `Ctrl/Cmd+Shift+Q` (or `NoAds.qualityPanel()`), with the current source (local file / cached copy / network stream) and a read-back switch for the auto-downgrade setting. |
 | **No tier spoofing** | The ceiling is served by Spotify, not decided by the client. A free account streams 160 kbps Ogg, and the extension says so out loud. Faking a Premium product state would be entitlement circumvention, would not survive server-side enforcement, and is not what this project is. |
 
+### Full quality for the music you own
+
+The tier ceiling applies to *streams from Spotify*. Your own files are a different path, and the
+client already ships the feature for it:
+
+1. Turn the feature on and enable the built-in source - in the client: `Settings → Show local files`,
+   or through its own API: `Spicetify.Platform.LocalFilesAPI.setIsEnabled(true)` followed by
+   `mutateDefaultSource({ id: 'my_music', enabled: true })` for `~/Music` (`'downloads'` for
+   `~/Downloads`; both default sources ship disabled, which is why a fresh client lists nothing).
+2. Your files then appear in **Your Library → Local files** as `spotify:local:` items and play at
+   their own bitrate - 320 kbps MP3 or better - with no tier cap, and they play offline because they
+   are already on disk. `NoAds.quality()` says `Source: local file (own bitrate, plays offline)` when
+   one is playing.
+3. Buying elsewhere (Bandcamp, Qobuz, iTunes, or ripping your own CDs) is the licence-clean way to
+   fill that folder. Nothing here downloads from Spotify's catalogue: that is DRM circumvention, it
+   is not what this project does, and it would not work client-side - the offline keys are issued by
+   the service to a paying session.
+
 Measured on a free account: setting `Very high` (3), account cap `0`, network advice 1,400,000 bps,
 delivered `vorbis 160000` - the ceiling is the tier, not the client and not the connection. For full
 quality, play local files (they go through the same pipeline at their native bitrate) or use Premium.
