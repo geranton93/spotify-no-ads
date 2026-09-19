@@ -1,0 +1,14 @@
+README.md
+  h_be7b56bb4932a4 259-276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ce556933867cf5a139ee1eeea9e984251c6e9b8b",
+  "prompts": {},
+  "humans": {
+    "h_be7b56bb4932a4": {
+      "author": "Anton Herashchenko <40860430+geranton93@users.noreply.github.com>"
+    }
+  }
+}
